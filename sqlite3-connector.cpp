@@ -110,8 +110,7 @@ bool Sqlite3_connector::syncStationData() {
     qDebug() << "Sqlite3_connector::syncStationData(): q.exec() returned" << rc;
 
     rowcount = getRowCount();
-    dropStationTable();
-    createStationTable();
+    qDebug() << "Sqlite3_connector::syncStationData(): rowcount = " << rowcount;
 
     return true;
 }
