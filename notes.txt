@@ -1,0 +1,10 @@
+Database Notes
+
+Case 1:
+    program starts up and finds no database
+
+Case 2:
+    program starts up and finds valid database
+
+Case 3:
+    User invokes Config dialog
