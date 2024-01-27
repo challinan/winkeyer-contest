@@ -26,6 +26,8 @@ private:
     const char *db_filename = "winkeyer_db";
     QSqlDatabase db;
     SerialComms *serial_comms_p;
+    QList<QString> db_station_fields = {"callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
+                                         "county, ", "country, ", "section, ", "serialport"};
 
     // Station Dialog
 private:
@@ -33,6 +35,7 @@ private:
     QString gridSquare;
     QString opname;
     QString location;
+    QString city;
     QString state;
     QString country;
     QString county;
@@ -43,7 +46,7 @@ public:
     QString getName();
     QString getCallSign();
     QString getGridSquare();
-    QString getLocation();
+    QString getCity();
     QString getState();
     QString getCountry();
     QString getCounty();
@@ -52,7 +55,7 @@ public:
     void setName(QString s);
     void setCallSign(QString s);
     void setGridSquare(QString s);
-    void setLocation(QString s);
+    void setCity(QString s);
     void setState(QString s);
     void setCountry(QString s);
     void setCounty(QString s);

@@ -82,7 +82,7 @@ void MainWindow::on_configPushButton_clicked()
     sd_ui.setupUi(&d);
     // Set the "OK" button label to "Save"
     sd_ui.saveButtonBox->button(QDialogButtonBox::Ok)->setText("Save");
-    sd_ui.serialPortComboBox->setPlaceholderText("Select Serial Port");
+    // sd_ui.serialPortComboBox->setPlaceholderText("Select Serial Port");
 
     // connect(sd_ui.callSignPlainTextEdit, &QPlainTextEdit::textChanged, this, &MainWindow::on_callSignPlainTextEdit_TextChanged);
 // #error "Check database, if table exists, pre-populate fields before showing dialog"
@@ -91,15 +91,19 @@ void MainWindow::on_configPushButton_clicked()
     set_dummy_data(sd_ui);
 
     int dialog_code = d.exec();
+    // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
+    //     "county, ", "country, ", "section, ", "serialport"}
+
     if ( dialog_code == QDialog::Accepted ) {
         qDebug() << "MainWindow::on_configPushButton_clicked(): Storing values";
         // Store all values in the database
-        db->setName(sd_ui.nameLineEdit->text());
         db->setCallSign(sd_ui.callSignLineEdit->text());
-        db->setLocation(sd_ui.locationLineEdit->text());
-        db->setCountry(sd_ui.countryLineEdit->text());
-        db->setCounty(sd_ui.countyLineEdit->text());
+        db->setName(sd_ui.nameLineEdit->text());
+        db->setGridSquare(sd_ui.gridSquareLineEdit->text());
+        db->setCity(sd_ui.cityLineEdit->text());
         db->setState(sd_ui.stateLineEdit->text());
+        db->setCounty(sd_ui.countyLineEdit->text());
+        db->setCountry(sd_ui.countryLineEdit->text());
         db->setArrlSection(sd_ui.sectionLineEdit->text());
         db->setSerialPort(sd_ui.serialPortComboBox->currentText());
 
@@ -126,9 +130,11 @@ void MainWindow::set_dummy_data(Ui::stationDialog sd_ui) {
     sd_ui.callSignLineEdit->setText("K1AY");
     sd_ui.nameLineEdit->setText("Chris");
     sd_ui.gridSquareLineEdit->setText("EL96av");
+    sd_ui.cityLineEdit->setText("Punta Gorda");
     sd_ui.stateLineEdit->setText("FL");
     sd_ui.countyLineEdit->setText("Charlotte");
     sd_ui.countryLineEdit->setText("USA");
     sd_ui.sectionLineEdit->setText("WCF");
+    sd_ui.serialPortComboBox->insertItem(0, "/dev/cu.usbserial-xxxyyyzzz");
 
 }

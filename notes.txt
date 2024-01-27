@@ -8,3 +8,31 @@ Case 2:
 
 Case 3:
     User invokes Config dialog
+
+Program Startup:
+
+Case 1: no database
+    create database
+    Initialize station_data table
+
+Case 2: database esits, tables empty
+    Bring up config dialog, populate database
+
+Case 3: database exits, station_data is populated with valid data
+    Read db and populate local db data
+    Continue bringup.
+
+Program Startup Logic:
+    1. does db file exist?
+        1.a. if yes, does a row exist with valid Database
+            1.b Read db and populate local db data
+        1.c if no, Bring up config dialog, populate database
+             * populate local db data
+
+    2. no db file
+        2.a create db file
+        2.b Bring up config dialog, populate database
+
+Common Tasks:
+    1. Bring up config dialog, populate database
+    2. Read db and populate local db data

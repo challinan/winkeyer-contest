@@ -120,7 +120,7 @@
     </rect>
    </property>
   </widget>
-  <widget class="QLineEdit" name="locationLineEdit">
+  <widget class="QLineEdit" name="cityLineEdit">
    <property name="geometry">
     <rect>
      <x>170</x>
@@ -261,7 +261,7 @@
  </widget>
  <tabstops>
   <tabstop>callSignLineEdit</tabstop>
-  <tabstop>locationLineEdit</tabstop>
+  <tabstop>cityLineEdit</tabstop>
   <tabstop>stateLineEdit</tabstop>
   <tabstop>gridSquareLineEdit</tabstop>
   <tabstop>nameLineEdit</tabstop>

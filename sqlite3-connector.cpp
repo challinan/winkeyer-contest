@@ -88,18 +88,27 @@ bool Sqlite3_connector::syncStationData() {
     bool rc;
     int rowcount;
 
-    QString op = "INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section, serialport) "
-                 "VALUES ("
-                 "\"" + getCallSign() + "\"" + ","
-                 "\"" + getName() + "\"" + ","
-                 "\"" + getGridSquare() + "\"" + ","
-                 "\"" + getLocation() + "\"" + ","
-                 "\"" + getState() + "\"" + ","
-                 "\"" + getCountry() + "\"" + ","
-                 "\"" + getCounty() + "\"" + ","
-                 "\"" + getArrlSection() + "\"" + ","
-                 "\"" + getSerialPort() + "\"" +
-                 ");";
+    QString op = "INSERT INTO station_data (";
+    QString str;
+    foreach (str, db_station_fields)
+        op.append(str);
+    op.append(") ");
+
+    // op.append(
+    // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
+    //     "county, ", "country, ", "section, ", "serialport"}
+
+    op.append("VALUES (");
+    op.append("\"" + getCallSign() + "\"" + ",");
+    op.append("\"" + getName() + "\"" + ",");
+    op.append("\"" + getGridSquare() + "\"" + ",");
+    op.append("\"" + getCity() + "\"" + ",");
+    op.append("\"" + getState() + "\"" + ",");
+    op.append("\"" + getCounty() + "\"" + ",");
+    op.append("\"" + getCountry() + "\"" + ",");
+    op.append("\"" + getArrlSection() + "\"" + ",");
+    op.append("\"" + getSerialPort() + "\"");
+    op.append(");");
 
     // qDebug() wants to escape all double quotes in QSring so we do it this way
     qDebug() << op.toUtf8().constData();
@@ -165,8 +174,8 @@ QString Sqlite3_connector::getGridSquare() {
     return gridSquare;
 }
 
-QString Sqlite3_connector::getLocation() {
-    return location;
+QString Sqlite3_connector::getCity() {
+    return city;
 }
 
 QString Sqlite3_connector::getState() {
@@ -201,8 +210,8 @@ void Sqlite3_connector::setGridSquare(QString s) {
     gridSquare = s;
 }
 
-void Sqlite3_connector::setLocation(QString s) {
-    location = s;
+void Sqlite3_connector::setCity(QString s) {
+    city = s;
 }
 
 void Sqlite3_connector::setState(QString s) {
