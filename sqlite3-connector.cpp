@@ -1,8 +1,38 @@
 #include "sqlite3-connector.h"
 
+#define FETCH_LAST
+
 Sqlite3_connector::Sqlite3_connector()
 {
+    // Initialize QMap function pointers
+    qDebug() << "Sqlite3_connector::Sqlite3_connector(): Entered";
+#if 0
+    QList<QString>::iterator e;
+    for (e = db_station_fields.begin(); e != db_station_fields.end(); ++e) {
+        QString s = *e;
+        functionMap.insert(s, 0x0);
+        qDebug() << "Sqlite3_connector::Sqlite3_connector():" << s;
+    }
+#endif
 
+    // Populate the local station db table (QMap) with dummy QString objects
+    QMapIterator<QString, int> m(db_station_fields_tmp); // m is reference to db_station_fields_tmp
+    while (m.hasNext() ) {
+        m.next();
+        QString s = "";
+        station_data_list_local_map.insert(s, "");
+    }
+
+    initDatabase();
+    syncStationData_read();
+
+#if 0
+    QMapIterator<QString, int> n(db_station_fields_tmp);
+    while (n.hasNext() ) {
+        n.next();
+        qDebug() << n.key() << ":" << n.value() << "->" << station_data_list_local.at(n.value());
+    }
+#endif
 }
 
 Sqlite3_connector::~Sqlite3_connector() {
@@ -30,7 +60,7 @@ bool Sqlite3_connector::initDatabase() {
     qDebug() << "Sqlite3_connector::Sqlite3_connector(): Opening" << dbPath;
     db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName(dbPath);
-    qDebug() << "Sqlite3_connector::initDatabase(): isValid returned" << db.isValid();
+    qDebug() << "Sqlite3_connector::initDatabase(): Database connector is isValid" << db.isValid();
 
     rc = db.open();
     if ( rc == false ) {
@@ -38,7 +68,7 @@ bool Sqlite3_connector::initDatabase() {
         return false;
     }
     else {
-        qDebug() << "Database: connection ok";
+        qDebug() << "Database: connection ok, file open";
     }
 
     // See if the database is populated or we need to initialize it
@@ -83,7 +113,7 @@ bool Sqlite3_connector::createStationTable() {
     return true;
 }
 
-bool Sqlite3_connector::syncStationData() {
+bool Sqlite3_connector::syncStationData_write() {
 
     bool rc;
     int rowcount;
@@ -94,7 +124,6 @@ bool Sqlite3_connector::syncStationData() {
         op.append(str);
     op.append(") ");
 
-    // op.append(
     // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
     //     "county, ", "country, ", "section, ", "serialport"}
 
@@ -124,12 +153,64 @@ bool Sqlite3_connector::syncStationData() {
     return true;
 }
 
+bool Sqlite3_connector::syncStationData_read() {
+
+    bool rc, result_valid;
+    QString s;
+    QMapIterator<QString, int> i(db_station_fields_tmp);
+
+    getRowCount();
+#ifdef FETCH_LAST
+    // Fetch the last row from the station table
+    QString op = "SELECT * FROM station_data ORDER BY rowid DESC LIMIT 1;";
+
+#else
+    // Construct the query
+    QString op = "SELECT ";
+    while (i.hasNext() ) {
+        i.next();
+        op.append(i.key());
+        if ( i.hasNext() )
+            op.append(", ");
+        else
+            op.append(" ");     // Can't allow comma after last field
+    }
+    op.append("FROM station_data;");
+    qDebug() << op;
+#endif
+
+    QSqlQuery q;
+    q.prepare(op);
+    rc = q.exec();
+
+    // Query results are invalid unless isActive() and isSelect() are both true
+    if ( !q.isActive() || !q.isSelect() )
+        return false;
+
+    qDebug() << "Sqlite3_connector::syncStationData_read(): SQL Query:" << rc;
+
+    result_valid = q.first();  // Position query to first returned result
+    while ( result_valid ) {
+        // Return the iterator to the front of the list (before first item)
+        i.toFront();
+        while (i.hasNext() ) {
+            i.next();
+            QString st = i.key();
+            // Populate our local copy of station data
+            station_data_list_local_map[st] = q.value(st).toString();
+        }
+        result_valid = q.next();
+    }
+
+    return rc;
+}
+
 int  Sqlite3_connector::getRowCount() {
 
     int rowcount = 0;
     bool rc;
 
-    QString op = "select callsign from station_data;";
+    QString op = "SELECT callsign FROM station_data;";
     QSqlQuery q;
     q.prepare(op);
     rc = q.exec();
@@ -138,14 +219,15 @@ int  Sqlite3_connector::getRowCount() {
     if ( q.isActive() && q.isSelect() ) {
         while ( q.next() ) {
             rowcount++;
-            qDebug() << "rowcount" << rowcount;
         }
     } else {
         return -1;
     }
 
+    qDebug() << "Sqlite3_connector::getRowCount(): There are" << rowcount << "rows in station table";
     return rowcount;
 }
+
 
 bool Sqlite3_connector::dropStationTable() {
 
@@ -159,6 +241,32 @@ bool Sqlite3_connector::dropStationTable() {
     if ( !rc ) return -1;
 
     return true;
+}
+
+QList<QString> Sqlite3_connector::get_station_data_table_keys() {
+
+    return db_station_fields_tmp.keys();
+}
+
+void Sqlite3_connector::insert_local_station_data_field(QString key, QString value) {
+    station_data_list_local_map.insert(key, value);
+}
+
+QString Sqlite3_connector::get_stataion_data_table_value_by_key(QString key) {
+    qDebug() << "Sqlite3_connector::get_stataion_data_table_value_by_key(): key" << key << "value" << station_data_list_local_map.value(key);
+    return station_data_list_local_map.value(key);
+}
+
+void Sqlite3_connector::dump_local_station_data() {
+
+    qDebug() << "Dumping local station data table";
+    QMapIterator<QString, QString> m(station_data_list_local_map);
+    while (m.hasNext() ) {
+        m.next();
+        qDebug() << m.key() << ":" << m.value();
+
+    }
+
 }
 
 // Setters and getters

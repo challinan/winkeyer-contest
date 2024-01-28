@@ -11,7 +11,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     db = new Sqlite3_connector;
-    db->initDatabase();
+    // Why was I doing the initDatabase here?
+    // db->initDatabase();
     // Q_ASSERT(false);
 
 
@@ -88,7 +89,8 @@ void MainWindow::on_configPushButton_clicked()
 // #error "Check database, if table exists, pre-populate fields before showing dialog"
 
     // For testing - insert test values into dialog box
-    set_dummy_data(sd_ui);
+    // set_dummy_data(sd_ui);
+    get_local_station_data(sd_ui);
 
     int dialog_code = d.exec();
     // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
@@ -107,7 +109,7 @@ void MainWindow::on_configPushButton_clicked()
         db->setArrlSection(sd_ui.sectionLineEdit->text());
         db->setSerialPort(sd_ui.serialPortComboBox->currentText());
 
-        db->syncStationData();
+        db->syncStationData_write();
     }
     else {
         qDebug() << "MainWindow::on_configPushButton_clicked(): Aborting";
@@ -137,4 +139,43 @@ void MainWindow::set_dummy_data(Ui::stationDialog sd_ui) {
     sd_ui.sectionLineEdit->setText("WCF");
     sd_ui.serialPortComboBox->insertItem(0, "/dev/cu.usbserial-xxxyyyzzz");
 
+}
+
+bool MainWindow::get_local_station_data(Ui::stationDialog sd_ui) {
+
+    QList<QString> l = db->get_station_data_table_keys();
+    db->dump_local_station_data();
+
+    QList<QString>::iterator e;
+    for (e = l.begin(); e != l.end(); ++e) {
+        QString stmp = *e;
+        qDebug() << "MainWindow::get_local_station_data: *e =" << *e << "stmp =" << stmp;
+
+        if ( stmp == QString("callsign") ) {
+            sd_ui.callSignLineEdit->setText(db->get_stataion_data_table_value_by_key(stmp));
+            qDebug() << "MATCH***" << db->get_stataion_data_table_value_by_key(*e);
+        }
+        else if ( *e == QString("opname") )
+            sd_ui.nameLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("gridsquare") )
+            sd_ui.gridSquareLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("city") )
+            sd_ui.cityLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("state") )
+            sd_ui.stateLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("county") )
+            sd_ui.countyLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("country") )
+            sd_ui.countryLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("section") )
+            sd_ui.sectionLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("serialport") )
+            sd_ui.serialPortComboBox->insertItem(0, db->get_stataion_data_table_value_by_key(*e));
+        else {
+            qDebug() << "MainWindow::get_local_station_data: Invalid station table key:" << *e;
+            return false;
+        }
+    }
+
+    return true;
 }

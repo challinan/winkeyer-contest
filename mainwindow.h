@@ -27,6 +27,7 @@ public:
 
 private:
     void set_dummy_data(Ui::stationDialog sd_ui);
+    bool get_local_station_data(Ui::stationDialog sd_ui);
 
 private:
     Ui::MainWindow *ui;
