@@ -1,4 +1,4 @@
-QT       += core widgets serialport sql
+QT       += core widgets serialport sql gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -14,12 +14,15 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     serialcomms.cpp \
-    sqlite3-connector.cpp
+    sqlite3-connector.cpp \
+    tabbed-config-dialog.cpp \
+    tempgetters.cpp
 
 HEADERS += \
     mainwindow.h \
     serialcomms.h \
-    sqlite3-connector.h
+    sqlite3-connector.h \
+    tabbed-config-dialog.h
 
 FORMS += \
     mainwindow.ui \

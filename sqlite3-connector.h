@@ -1,16 +1,24 @@
 #ifndef SQLITE3_CONNECTOR_H
 #define SQLITE3_CONNECTOR_H
 
+#include <QCoreApplication>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QObject>
 #include <QDebug>
 #include <QDir>
+#include <QMessageBox>
+#include <QSerialPortInfo>
 #include <serialcomms.h>
+
+enum  database_state {DB_NOEXIST, DB_EMPTY, DB_HAS_STATIONTABLE, DB_HAS_MULTITABLES, DB_INVALID, DB_ERROR};
+#define HIDDEN_WORKDIR ".macrr"
 
 class Sqlite3_connector : public QObject
 {
+    Q_OBJECT
+
 public:
     Sqlite3_connector();
     ~Sqlite3_connector();
@@ -20,68 +28,66 @@ public:
     void setSerialPtr(SerialComms *p);
     QList<QString> get_station_data_table_keys();
     QString get_stataion_data_table_value_by_key(QString key);
-    // station_data_list_local_map.insert(s, "");
-    void insert_local_station_data_field(QString key, QString value);
+    void set_station_data_table_value_by_key(QString key, QString value);
     void dump_local_station_data();
+    int display_message_box(QString text, bool db_init=false);
+    enum database_state getDatabaseState();
+    bool dbInitSucceeded();
+    void setInitStatus(bool status);
 
 private:
     bool createStationTable();
     int  getRowCount();
     bool dropStationTable();
+    void enumerate_available_serial_ports();
+    bool database_initialized;
+    void getDatabaseFullPath();
+    bool validateDatabaseFullPath();
+    bool create_database_path();
+    bool initialization_succeeded;
 
 private:
     const char *db_filename = "winkeyer_db";
     QSqlDatabase db;
+    QString dbpath;
     SerialComms *serial_comms_p;
-    QList<QString> db_station_fields = {"callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
-                                         "county, ", "country, ", "section, ", "serialport"};
-
-    // This defines the station database table - the one source of truth
-    const QMap<QString, int> db_station_fields_tmp = {
-        {"callsign", 0},
-        {"opname", 1},
-        {"gridsquare", 2},
-        {"city", 3},
-        {"state", 4},
-        {"county", 5},
-        {"country", 6},
-        {"section", 7},
-        {"serialport", 8}
-    };
-
-    // Station Dialog
-private:
-    QMap<QString, QString> station_data_list_local_map;
-    QString callSign;
-    QString opname;
-    QString gridSquare;
-    QString city;
-    QString state;
-    QString county;
-    QString country;
-    QString arrl_section;
-    QString serial_port;
 
 public:
-    QString getCallSign();
-    QString getName();
-    QString getGridSquare();
-    QString getCity();
-    QString getState();
-    QString getCounty();
-    QString getCountry();
-    QString getArrlSection();
-    QString getSerialPort();
+    QList<QSerialPortInfo> serial_port_list;
 
-    void setCallSign(QString s);
-    void setName(QString s);
-    void setGridSquare(QString s);
-    void setCity(QString s);
-    void setState(QString s);
-    void setCounty(QString s);
-    void setCountry(QString s);
-    void setArrlSection(QString s);
-    void setSerialPort(QString s);
+private:
+    // This defines the station database table layout - the one source of truth
+    const QMap<int, QString> db_station_fields = {
+        {0, "callsign"},
+        {1, "opname"},
+        {2, "gridsquare"},
+        {3, "city"},
+        {4, "state"},
+        {5, "county"},
+        {6, "country"},
+        {7, "section"},
+        {8, "serialport"}
+    };
+
+public:
+    const QMap<QString, QString> text_labels_for_keys = {
+        {"callsign", "Call Sign"},
+        {"opname", "Name"},
+        {"gridsquare", "Grid Square"},
+        {"city", "City"},
+        {"state", "State"},
+        {"county", "County"},
+        {"country", "Country"},
+        {"section", "Arrl Section"},
+        {"serialport", "Serial Port"}
+    };
+
+private:
+    // Station Dialog
+    QMap<QString, QString> station_data_list_local_map;
+
+signals:
+    void do_config_dialog();
 
 };
 

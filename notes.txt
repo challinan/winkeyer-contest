@@ -1,5 +1,13 @@
 Database Notes
 
+--**--
+Database States:
+a. doesn't exist on disk
+b. File exists on disk, has no tables
+c. File exists on disk, has a valid station table
+d. File exists on disk, has multiple tables
+--**--
+
 Case 1:
     program starts up and finds no database
 
@@ -36,3 +44,10 @@ Program Startup Logic:
 Common Tasks:
     1. Bring up config dialog, populate database
     2. Read db and populate local db data
+---------------------------------------------------------
+
+Current Startup Sequence:
+
+    1. Setup UI - comes from mainwindow.ui FORM
+    2. Instantiate Database object: Sqlite3_connector
+        Connect signal to open config dialog

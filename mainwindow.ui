@@ -6,19 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
+    <width>852</width>
     <height>425</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Winkeyer Contester</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QPlainTextEdit" name="plainTextEdit">
     <property name="geometry">
      <rect>
-      <x>40</x>
-      <y>40</y>
+      <x>140</x>
+      <y>300</y>
       <width>571</width>
       <height>74</height>
      </rect>
@@ -27,19 +27,22 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>240</x>
+      <x>310</x>
       <y>0</y>
-      <width>170</width>
+      <width>211</width>
       <height>24</height>
      </rect>
     </property>
     <property name="font">
      <font>
-      <pointsize>18</pointsize>
+      <pointsize>22</pointsize>
      </font>
     </property>
     <property name="text">
      <string>Winkeyer Contester</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
     </property>
    </widget>
    <widget class="QPushButton" name="configPushButton">
@@ -58,7 +61,7 @@
    <widget class="QPushButton" name="exitPushButton">
     <property name="geometry">
      <rect>
-      <x>680</x>
+      <x>730</x>
       <y>350</y>
       <width>100</width>
       <height>32</height>
@@ -68,13 +71,26 @@
      <string>Exit</string>
     </property>
    </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>140</x>
+      <y>280</y>
+      <width>151</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>CW Transmit Window</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>852</width>
      <height>24</height>
     </rect>
    </property>
