@@ -25,11 +25,17 @@ public:
     bool initDatabase();
     bool syncStationData_write();
     bool syncStationData_read();
+    bool syncSysconfigData_write();
+    bool syncSysconfigData_read();
     void setSerialPtr(SerialComms *p);
     QList<QString> get_station_data_table_keys();
-    QString get_stataion_data_table_value_by_key(QString key);
+    QList<QString> get_sysconfig_table_keys();
+    QString get_station_data_table_value_by_key(QString key);
+    QString get_sysconfig_table_value_by_key(QString key);
     void set_station_data_table_value_by_key(QString key, QString value);
+    void set_sysconfig_table_value_by_key(QString key, QString value);
     void dump_local_station_data();
+    void dump_local_sysconfig_data();
     int display_message_box(QString text, bool db_init=false);
     enum database_state getDatabaseState();
     bool dbInitSucceeded();
@@ -37,6 +43,7 @@ public:
 
 private:
     bool createStationTable();
+    bool createSysconfigTable();
     int  getRowCount();
     bool dropStationTable();
     void enumerate_available_serial_ports();
@@ -69,8 +76,15 @@ private:
         // {8, "serialport"}
     };
 
+    // This defines the system database table layout - the one source of truth
+    const QMap<int, QString>db_sysconfig_fields = {
+        {0, "serialport"},
+        {1, "audiooutput"},
+        {2, "audioinput"}
+    };
+
 public:
-    const QMap<QString, QString> text_labels_for_keys = {
+    const QMap<QString, QString> text_labels_for_station_data_keys = {
         {"callsign", "Call Sign"},
         {"opname", "Name"},
         {"gridsquare", "Grid Square"},
@@ -82,9 +96,16 @@ public:
         {"serialport", "Serial Port"}
     };
 
+    const QMap<QString, QString> text_labels_for_sysconfig_keys = {
+    {"serialport", "Serial Port"},
+    {"audiooutput", "Audio Output Device"},
+    {"audioinput", "Audio Input Device"}
+    };
+
 private:
     // Station Dialog
     QMap<QString, QString> station_data_list_local_map;
+    QMap<QString, QString> sysconfig_data_list_local_map;
 
 signals:
     void do_config_dialog();

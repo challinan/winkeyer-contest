@@ -190,21 +190,21 @@ bool MainWindow::get_local_station_data_into_dialog(TopLevelTabContainerDialog *
 //  {0, "callsign", "opname", "gridsquare", "city", "state", "county", "country", "section"}
 
         if ( *e == QString("callsign") )
-            pTabbedDialog->setFieldText("callsign", db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("callsign", db->get_station_data_table_value_by_key(*e));
         else if ( *e == QString("opname") )
-            pTabbedDialog->setFieldText("opname", db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("opname", db->get_station_data_table_value_by_key(*e));
         else if ( *e == QString("gridsquare") )
-            pTabbedDialog->setFieldText("gridsquare", db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("gridsquare", db->get_station_data_table_value_by_key(*e));
         else if ( *e == QString("city") )
-            pTabbedDialog->setFieldText("city", db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("city", db->get_station_data_table_value_by_key(*e));
         else if ( *e == QString("state") )
-            pTabbedDialog->setFieldText("state", db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("state", db->get_station_data_table_value_by_key(*e));
         else if ( *e == QString("county") )
-            pTabbedDialog->setFieldText("county", db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("county", db->get_station_data_table_value_by_key(*e));
         else if ( *e == QString("country") )
-            pTabbedDialog->setFieldText("country", db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("country", db->get_station_data_table_value_by_key(*e));
         else if ( *e == QString("section") )
-            pTabbedDialog->setFieldText("section", db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("section", db->get_station_data_table_value_by_key(*e));
         else {
             qDebug() << "MainWindow::get_local_station_data(): Invalid station table key:" << *e;
             return false;

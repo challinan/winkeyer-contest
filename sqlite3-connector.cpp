@@ -77,9 +77,20 @@ bool Sqlite3_connector::initDatabase() {
             db.close();
             return false;
         }
+        rc = createSysconfigTable();
     }
 
-    syncStationData_read();
+    rc = syncStationData_read();
+    if ( rc == false ) {
+        db.close();
+        return false;
+    }
+
+    rc = syncSysconfigData_read();
+    if ( rc == false ) {
+        db.close();
+        return false;
+    }
 
     return true;
 }
@@ -176,6 +187,42 @@ bool Sqlite3_connector::createStationTable() {
     return true;
 }
 
+bool Sqlite3_connector::createSysconfigTable() {
+    bool rc;
+
+    qDebug() << "Sqlite3_connector::createSysconfigTable(): Entered";
+
+    if ( !db.isValid() ) {
+        qDebug() << "Sqlite3_connector::createSysconfigTable(): invalid database";
+        display_message_box("Invalid Database Connection - isValid() is false");
+        return false;
+    }
+
+    QMapIterator<int, QString> m(db_sysconfig_fields);
+
+    QString s = "CREATE TABLE sysconfig_data (";
+    while ( m.hasNext() ) {
+        m.next();
+        s.append(m.value());
+        s.append(" TEXT");
+        if ( m.hasNext() )
+            s.append(", ");
+    }
+    s.append(");");
+
+    qDebug() << "Sqlite3_connector::createSysconfigTable(): s =" << s;
+
+    QSqlQuery q;
+    q.prepare(s);
+    rc = q.exec();
+    if ( rc == false )
+        display_message_box("SQL query failed creating sysconfig table");
+
+    qDebug() << "Sqlite3_connector::createSysconfigTable(): q.exec() returned" << rc;
+    return true;
+
+}
+
 bool Sqlite3_connector::syncStationData_write() {
 
     bool rc;
@@ -203,16 +250,16 @@ bool Sqlite3_connector::syncStationData_write() {
     //     "county, ", "country, ", "section}
 
     op.append("VALUES (");
-    op.append("\"" + get_stataion_data_table_value_by_key("callsign") + "\"" + ",");
-    op.append("\"" + get_stataion_data_table_value_by_key("opname") + "\"" + ",");
-    op.append("\"" + get_stataion_data_table_value_by_key("gridsquare") + "\"" + ",");
-    op.append("\"" + get_stataion_data_table_value_by_key("city") + "\"" + ",");
-    op.append("\"" + get_stataion_data_table_value_by_key("state") + "\"" + ",");
-    op.append("\"" + get_stataion_data_table_value_by_key("county") + "\"" + ",");
-    op.append("\"" + get_stataion_data_table_value_by_key("country") + "\"" + ",");
+    op.append("\"" + get_station_data_table_value_by_key("callsign") + "\"" + ",");
+    op.append("\"" + get_station_data_table_value_by_key("opname") + "\"" + ",");
+    op.append("\"" + get_station_data_table_value_by_key("gridsquare") + "\"" + ",");
+    op.append("\"" + get_station_data_table_value_by_key("city") + "\"" + ",");
+    op.append("\"" + get_station_data_table_value_by_key("state") + "\"" + ",");
+    op.append("\"" + get_station_data_table_value_by_key("county") + "\"" + ",");
+    op.append("\"" + get_station_data_table_value_by_key("country") + "\"" + ",");
 
     // Note we don't add a trailing comma to the last field here
-    op.append("\"" + get_stataion_data_table_value_by_key("section") + "\"");
+    op.append("\"" + get_station_data_table_value_by_key("section") + "\"");
     op.append(");");
 
     // qDebug() wants to escape all double quotes in QSring so we do it this way
@@ -225,6 +272,59 @@ bool Sqlite3_connector::syncStationData_write() {
 
     rowcount = getRowCount();
     qDebug() << "Sqlite3_connector::syncStationData(): rowcount = " << rowcount;
+
+    return true;
+}
+
+bool Sqlite3_connector::syncSysconfigData_write() {
+
+    bool rc;
+    int rowcount;
+    qDebug() << "Sqlite3_connector::syncSysconfigData_write(): Entered";
+
+    // SQLite command needs to look like this:
+    // INSERT INTO sysconfig_data (callsign, opname, gridsquare, city, state, county, country, section)
+    //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
+
+    QString op = "INSERT INTO sysconfig_data (";
+    QString fields;
+    QMapIterator<int, QString> m(db_sysconfig_fields);
+    while (m.hasNext() ) {
+        m.next();
+        fields.append(m.value());
+        if ( m.hasNext() )
+            fields.append(", ");
+        else
+            fields.append(" ");     // Can't allow comma after last field
+    }
+    op.append(fields + ") ");
+
+    // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
+    //     "county, ", "country, ", "section}
+
+    op.append("VALUES (");
+    op.append("\"" + get_sysconfig_table_value_by_key("callsign") + "\"" + ",");
+    op.append("\"" + get_sysconfig_table_value_by_key("opname") + "\"" + ",");
+    op.append("\"" + get_sysconfig_table_value_by_key("gridsquare") + "\"" + ",");
+    op.append("\"" + get_sysconfig_table_value_by_key("city") + "\"" + ",");
+    op.append("\"" + get_sysconfig_table_value_by_key("state") + "\"" + ",");
+    op.append("\"" + get_sysconfig_table_value_by_key("county") + "\"" + ",");
+    op.append("\"" + get_sysconfig_table_value_by_key("country") + "\"" + ",");
+
+    // Note we don't add a trailing comma to the last field here
+    op.append("\"" + get_sysconfig_table_value_by_key("section") + "\"");
+    op.append(");");
+
+    // qDebug() wants to escape all double quotes in QSring so we do it this way
+    qDebug() << op.toUtf8().constData();
+
+    QSqlQuery q;
+    q.prepare(op);
+    rc = q.exec();
+    qDebug() << "Sqlite3_connector::syncSysconfigData_write(): q.exec() returned" << rc;
+
+    rowcount = getRowCount();
+    qDebug() << "Sqlite3_connector::syncSysconfigData_write(): rowcount = " << rowcount;
 
     return true;
 }
@@ -262,7 +362,7 @@ bool Sqlite3_connector::syncStationData_read() {
 
     // Query results are invalid unless isActive() and isSelect() are both true
     if ( !q.isActive() || !q.isSelect() ) {
-        display_message_box("Database query failed - invalid");
+        display_message_box("Database query failed - invalid reading station_data table");
         return false;
     }
 
@@ -277,6 +377,61 @@ bool Sqlite3_connector::syncStationData_read() {
             QString st = i.value();
             // Populate our local copy of station data
             station_data_list_local_map[st] = q.value(st).toString();
+        }
+        result_valid = q.next();
+    }
+
+    return rc;
+}
+
+bool Sqlite3_connector::syncSysconfigData_read() {
+
+    bool rc, result_valid;
+    QMapIterator<int, QString> i(db_sysconfig_fields);
+
+// getRowCount();
+#ifdef FETCH_LAST
+    // Fetch the last row from the sysconfig data table
+    QString op = "SELECT * FROM sysconfig_data ORDER BY rowid DESC LIMIT 1;";
+
+#else
+    // Construct the query
+    QString op = "SELECT ";
+    while (i.hasNext() ) {
+        i.next();
+        op.append(i.value());
+        if ( i.hasNext() )
+            op.append(", ");
+        else
+            op.append(" ");     // Can't allow comma after last field
+    }
+    op.append("FROM sysconfig_data;");
+    qDebug() << op;
+#endif
+
+    qDebug() << "Sqlite3_connector::syncSysconfigData_read(): CMD" << op;
+
+    QSqlQuery q;
+    q.prepare(op);
+    rc = q.exec();
+
+    // Query results are invalid unless isActive() and isSelect() are both true
+    if ( !q.isActive() || !q.isSelect() ) {
+        display_message_box("Database query failed - invalid reading sysconfig_data table");
+        return false;
+    }
+
+    qDebug() << "Sqlite3_connector::syncSysconfigData_read(): SQL Query:" << rc;
+
+    result_valid = q.first();  // Position query to first returned result
+    while ( result_valid ) {
+        // Return the iterator to the front of the list (before first item)
+        i.toFront();
+        while (i.hasNext() ) {
+            i.next();
+            QString st = i.value();
+            // Populate our local copy of sysconfig data
+            sysconfig_data_list_local_map[st] = q.value(st).toString();
         }
         result_valid = q.next();
     }
@@ -328,6 +483,7 @@ bool Sqlite3_connector::dropStationTable() {
     return true;
 }
 
+// TODO Collapes these two functions into one
 QList<QString> Sqlite3_connector::get_station_data_table_keys() {
 
     QList<QString> s;
@@ -340,9 +496,28 @@ QList<QString> Sqlite3_connector::get_station_data_table_keys() {
     return s;
 }
 
-QString Sqlite3_connector::get_stataion_data_table_value_by_key(QString key) {
-    // qDebug() << "Sqlite3_connector::get_stataion_data_table_value_by_key(): key" << key << "value" << station_data_list_local_map.value(key);
+QList<QString> Sqlite3_connector::get_sysconfig_table_keys() {
+
+    QList<QString> s;
+
+    QMapIterator<int, QString> m(db_sysconfig_fields);
+    while (m.hasNext() ) {
+        m.next();
+        qDebug() << "QList<QString> Sqlite3_connector::get_sysconfig_table_keys()" << m.value();
+        s.append(m.value());
+    }
+    return s;
+
+}
+
+QString Sqlite3_connector::get_station_data_table_value_by_key(QString key) {
+    // qDebug() << "Sqlite3_connector::get_station_data_table_value_by_key(): key" << key << "value" << station_data_list_local_map.value(key);
     return station_data_list_local_map.value(key);
+}
+
+QString Sqlite3_connector::get_sysconfig_table_value_by_key(QString key) {
+    // qDebug() << "Sqlite3_connector::get_station_data_table_value_by_key(): key" << key << "value" << station_data_list_local_map.value(key);
+    return sysconfig_data_list_local_map.value(key);
 }
 
 void Sqlite3_connector::dump_local_station_data() {
@@ -356,7 +531,21 @@ void Sqlite3_connector::dump_local_station_data() {
 
 }
 
+void Sqlite3_connector::dump_local_sysconfig_data() {
+
+    qDebug() << "Dumping local system config data table";
+    QMapIterator<QString, QString> m(sysconfig_data_list_local_map);
+    while (m.hasNext() ) {
+        m.next();
+        qDebug() << m.key() << ":" << m.value();
+    }
+}
+
 void Sqlite3_connector::set_station_data_table_value_by_key(QString key, QString value) {
+    station_data_list_local_map[key] = value;
+}
+
+void Sqlite3_connector::set_sysconfig_table_value_by_key(QString key, QString value) {
     station_data_list_local_map[key] = value;
 }
 
@@ -463,6 +652,7 @@ enum database_state Sqlite3_connector::getDatabaseState() {
 
     qDebug() << "Sqlite3_connector::getDatabaseState(): DB_ERROR";
     db.close();
+
     return DB_ERROR;
 }
 
