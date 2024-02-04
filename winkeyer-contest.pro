@@ -25,8 +25,7 @@ HEADERS += \
     tabbed-config-dialog.h
 
 FORMS += \
-    mainwindow.ui \
-    station_data.ui
+    mainwindow.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

@@ -10,6 +10,7 @@
 
 #include <QTextCursor>
 #include <QPushButton>
+#include <QAbstractButton>
 #include <QEvent>
 #include <QDebug>
 #include <QWidget>

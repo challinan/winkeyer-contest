@@ -18,21 +18,14 @@ void MainWindow::waitForVisible() {
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+    : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     initialization_succeeded = true;
     init_called_once = false;
     qDebug() << "MainWindow::MainWindow(): Ctor Entered";
     ui->setupUi(this);
     connect(this, &MainWindow::waitVisibleSignal, this, &MainWindow::waitForVisible, Qt::QueuedConnection);
-    // ((object).*(ptrToMember))
-    // typedef double (CA::*CAGetter)(const double x);
-    // typedef int (MyClass::*MyFuncPtr)(int, int);
-    // MyFuncPtr my_func_ptr = &MyClass::add;
-    typedef void (QPushButton::*myFnPtr)(bool);
-    // myFnPtr p = &ui->configPushButton->clicked;
-    // connect(ui, p, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
+    connect(ui->configPushButton, &QPushButton::clicked, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
 
     // Entry to main event loop starts when this constructor returns
     qDebug() << "MainWindow::MainWindow(): Ctor Exiting complete";
