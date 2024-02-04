@@ -183,8 +183,8 @@ bool Sqlite3_connector::syncStationData_write() {
     qDebug() << "Sqlite3_connector::syncStationData_write(): Entered";
 
     // SQLite command needs to look like this:
-    // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section, serialport)
-    //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF","/dev/cu.usbserial-last");
+    // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section)
+    //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
 
     QString op = "INSERT INTO station_data (";
     QString fields;
@@ -197,10 +197,10 @@ bool Sqlite3_connector::syncStationData_write() {
         else
             fields.append(" ");     // Can't allow comma after last field
     }
-    op.append(fields + ")");
+    op.append(fields + ") ");
 
     // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
-    //     "county, ", "country, ", "section, ", "serialport"}
+    //     "county, ", "country, ", "section}
 
     op.append("VALUES (");
     op.append("\"" + get_stataion_data_table_value_by_key("callsign") + "\"" + ",");
@@ -210,8 +210,9 @@ bool Sqlite3_connector::syncStationData_write() {
     op.append("\"" + get_stataion_data_table_value_by_key("state") + "\"" + ",");
     op.append("\"" + get_stataion_data_table_value_by_key("county") + "\"" + ",");
     op.append("\"" + get_stataion_data_table_value_by_key("country") + "\"" + ",");
-    op.append("\"" + get_stataion_data_table_value_by_key("section") + "\"" + ",");
-    op.append("\"" + get_stataion_data_table_value_by_key("serialport") + "\"");
+
+    // Note we don't add a trailing comma to the last field here
+    op.append("\"" + get_stataion_data_table_value_by_key("section") + "\"");
     op.append(");");
 
     // qDebug() wants to escape all double quotes in QSring so we do it this way
@@ -340,7 +341,7 @@ QList<QString> Sqlite3_connector::get_station_data_table_keys() {
 }
 
 QString Sqlite3_connector::get_stataion_data_table_value_by_key(QString key) {
-    qDebug() << "Sqlite3_connector::get_stataion_data_table_value_by_key(): key" << key << "value" << station_data_list_local_map.value(key);
+    // qDebug() << "Sqlite3_connector::get_stataion_data_table_value_by_key(): key" << key << "value" << station_data_list_local_map.value(key);
     return station_data_list_local_map.value(key);
 }
 
@@ -396,7 +397,6 @@ void Sqlite3_connector::enumerate_available_serial_ports() {
     for (i = serial_port_list.begin(); i != serial_port_list.end(); ++i) {
         qDebug() << "Sqlite3_connector::enumerate_available_serial_ports():" << i->portName();
     }
-
 }
 
 enum database_state Sqlite3_connector::getDatabaseState() {

@@ -36,9 +36,8 @@ public:
     bool initSucceeded();
 
 private:
-    void set_dummy_data(Ui::stationDialog sd_ui);
-    bool get_local_station_data(Ui::stationDialog sd_ui);
-    void populateSerialPortComboBox(Ui::stationDialog sd_ui);
+    void set_dummy_station_data(Ui::stationDialog sd_ui);
+    // void populateSerialPortComboBox(Ui::stationDialog sd_ui);
 
 private:
     Ui::MainWindow *ui;
@@ -48,14 +47,13 @@ private:
     bool initialization_succeeded;
     bool init_called_once;
     QTimer *blinkTimer;
-    TopLevelTabContainerDialog *tabbedDialog;
+    TopLevelTabContainerDialog *tabbedDialogPtr;
 
 protected:
     void showEvent(QShowEvent *event) override;
 
 public slots:
     void serial_port_detected(QString &s);
-    void configPushButton_clicked();
 
 private slots:
     void on_plainTextEdit_textChanged();

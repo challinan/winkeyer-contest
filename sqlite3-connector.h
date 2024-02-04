@@ -65,8 +65,8 @@ private:
         {4, "state"},
         {5, "county"},
         {6, "country"},
-        {7, "section"},
-        {8, "serialport"}
+        {7, "section"}
+        // {8, "serialport"}
     };
 
 public:

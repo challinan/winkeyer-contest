@@ -7,18 +7,20 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     db = p;
     qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Entered";
     tabWidget = new QTabWidget;
-    tabWidget->addTab(new StationDataTab(p), "StationData");
-    tabWidget->addTab(new ContestTab(p), "Contest Config");
-    tabWidget->addTab(new SystemConfigTab(p), "System Config");
+    pStationDataTab = new StationDataTab(db);
+    pContestTab = new ContestTab(db);
+    pSystemConfigTab = new SystemConfigTab(db);
+    tabWidget->addTab(pStationDataTab, "StationData");
+    tabWidget->addTab(pContestTab, "Contest Config");
+    tabWidget->addTab(pSystemConfigTab, "System Config");
     qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Tabs Added";
 
     // Create two standard push buttons, and connect each of them to the appropriate slots in the dialog
     buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok
                                      | QDialogButtonBox::Cancel);
 
-    connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &TopLevelTabContainerDialog::user_pressed_save);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &TopLevelTabContainerDialog::user_pressed_cancel);
 
     // Arrange the tab widget above the buttons in the dialog
     QVBoxLayout *mainLayout = new QVBoxLayout;
@@ -28,89 +30,197 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
 
     // Set the dialog's title
     setWindowTitle(tr("Configuration Dialog"));
+
+    // If data is available, populate it here
+    get_local_station_data_into_dialog();
+    connectTextChangedSignals();
 }
 
+bool TopLevelTabContainerDialog::get_local_station_data_into_dialog() {
+
+    QList<QString> keys = db->get_station_data_table_keys();
+    db->dump_local_station_data();
+
+    QList<QString>::iterator e;
+    for (e = keys.begin(); e != keys.end(); ++e) {
+        //  {0, "callsign", "opname", "gridsquare", "city", "state", "county", "country", "section"}
+
+        if ( *e == QString("callsign") )
+            setFieldText("callsign", db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("opname") )
+            setFieldText("opname", db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("gridsquare") )
+            setFieldText("gridsquare", db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("city") )
+            setFieldText("city", db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("state") )
+            setFieldText("state", db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("county") )
+            setFieldText("county", db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("country") )
+            setFieldText("country", db->get_stataion_data_table_value_by_key(*e));
+        else if ( *e == QString("section") )
+            setFieldText("section", db->get_stataion_data_table_value_by_key(*e));
+        else {
+            qDebug() << "MainWindow::get_local_station_data(): Invalid station table key:" << *e;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void TopLevelTabContainerDialog::connectTextChangedSignals(bool doConnect) {
+
+    // Connect signals from all the QLineEdit items that indicate
+    //    data changed so we know to save the data
+    QList<QString> keys = db->get_station_data_table_keys();
+    QList<QString>::iterator e;
+    for (e = keys.begin(); e != keys.end(); ++e) {
+        QLineEdit *pLineEdit;
+        QString findKey = *e;
+        findKey.append("EditBox");
+        pLineEdit = pStationDataTab->findChild<QLineEdit *>(findKey);
+        Q_ASSERT(pLineEdit);
+        if ( doConnect ) {
+            if ( connect(pLineEdit, &QLineEdit::textChanged, this,
+                        &TopLevelTabContainerDialog::station_data_changed) )
+                qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Connection valid:" << findKey;
+        }
+        else {
+            if ( disconnect(pLineEdit, &QLineEdit::textChanged, this,
+                        &TopLevelTabContainerDialog::station_data_changed) )
+                qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Connection valid:" << findKey;
+        }
+    }
+}
+
+void TopLevelTabContainerDialog::user_pressed_save() {
+    qDebug() << "TopLevelTabContainerDialog::user_pressed_save(): Entered";
+    save_tabbed_data_to_database();
+
+    // Disconnect all the QLineEdit signals
+    connectTextChangedSignals(false);
+    QDialog::accept();
+}
+
+void TopLevelTabContainerDialog::user_pressed_cancel() {
+    qDebug() << "TopLevelTabContainerDialog::user_pressed_cancel(): Entered";
+    // Disconnect all the QLineEdit signals
+    connectTextChangedSignals(false);
+    QDialog::reject();
+}
+
+void TopLevelTabContainerDialog::save_tabbed_data_to_database() {
+
+    qDebug() << "TopLevelTabContainerDialog::save_tabbed_data_to_database()";
+    // QLineEdit *p;
+
+    QListIterator<QLineEdit *> e(pStationDataTab->editBoxes);
+    while (e.hasNext() ) {
+        QLineEdit *lep = e.next();
+        QString objname = lep->objectName();
+        lep = pStationDataTab->findChild<QLineEdit *>(objname);
+        objname.remove("EditBox");
+        db->set_station_data_table_value_by_key(objname, lep->text());
+    }
+
+#if 0
+    p = pStationDataTab->findChild<QLineEdit *>("callsignEditBox");
+    db->set_station_data_table_value_by_key("callsign", p->text());
+
+    p = pStationDataTab->findChild<QLineEdit *>("opnameEditBox");
+    db->set_station_data_table_value_by_key("opname", p->text());
+
+    p = pStationDataTab->findChild<QLineEdit *>("gridsquareEditBox");
+    db->set_station_data_table_value_by_key("gridsquare", p->text());
+
+    p = pStationDataTab->findChild<QLineEdit *>("cityEditBox");
+    db->set_station_data_table_value_by_key("city", p->text());
+
+    p = pStationDataTab->findChild<QLineEdit *>("stateEditBox");
+    db->set_station_data_table_value_by_key("state", p->text());
+
+    p = pStationDataTab->findChild<QLineEdit *>("countyEditBox");
+    db->set_station_data_table_value_by_key("county", p->text());
+
+    p = pStationDataTab->findChild<QLineEdit *>("countryEditBox");
+    db->set_station_data_table_value_by_key("country", p->text());
+
+    p = pStationDataTab->findChild<QLineEdit *>("sectionEditBox");
+    db->set_station_data_table_value_by_key("section", p->text());
+#endif
+
+    db->syncStationData_write();
+}
+
+void TopLevelTabContainerDialog::setFieldText(QString key, QString value) {
+
+    QLineEdit *p;
+    QString childName = key;
+    childName.append("EditBox");
+    // qDebug() << "TopLevelTabContainerDialog::setFieldText(): childName =" << childName;
+
+    p = pStationDataTab->findChild<QLineEdit *>(childName);
+    Q_ASSERT(p);
+    p->setText(value);
+    // db->set_station_data_table_value_by_key("callsign", p->text());
+}
+
+void TopLevelTabContainerDialog::station_data_changed() {
+    qDebug() << "TopLevelTabContainerDialog::station_data_changed(): *******************************>>> Entered";
+}
+
+
 TopLevelTabContainerDialog::~TopLevelTabContainerDialog() {
+    delete pStationDataTab;
+    delete pContestTab;
+    delete pSystemConfigTab;
     delete tabWidget;
 }
 
+// ******************  StationDataTab  **************************** //
 StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
     : QWidget(parent)
 {
     db = p;     // Pointer to sqlite3_connector database engine
-    QList<QString> keys = db->get_station_data_table_keys();
-
-    QListIterator<QString> e(keys);
-    while (e.hasNext() ) {
-        QString item = e.next();
-        qDebug() << "StationDataTab::StationDataTab():" << item << db->text_labels_for_keys[item];
-    }
-
     QFormLayout *formLayout = new QFormLayout(this);
 
-    // Callsign
-    QLineEdit *callSignEditBox = new QLineEdit(this);
-    formLayout->addRow("Call Sign", callSignEditBox);
-    // callSignEditBox->setGeometry(QRect(10, 60, 128, 21));
+    QList<QString> keys = db->get_station_data_table_keys();
 
-    // Name
-    QLineEdit *nameEditBox = new QLineEdit(this);
-    formLayout->addRow("Name", nameEditBox);
+    // {"callsign", "opname", "gridsquare", "city"}, "state", "county", "country", "section", "serialport"}
+    QListIterator<QString> e(keys);
+    while (e.hasNext() ) {
+        QString key = e.next();
 
-    // City
-    QLineEdit *cityEditBox = new QLineEdit(this);
-    formLayout->addRow("City", cityEditBox);
-
-    // State
-    QLineEdit *stateEditBox = new QLineEdit(this);
-    formLayout->addRow("State", stateEditBox);
-
-    // GridSquare
-    QLineEdit *gridSquareEditBox = new QLineEdit(this);
-    formLayout->addRow("Grid Sqaure", gridSquareEditBox);
-
-    // County
-    QLineEdit *countyEditBox = new QLineEdit(this);
-    formLayout->addRow("County", countyEditBox);
-
-    // Country
-    QLineEdit *countryEditBox = new QLineEdit(this);
-    formLayout->addRow("Country", countryEditBox);
-
-    // ARRL Section
-    QLineEdit *sectionEditBox = new QLineEdit(this);
-    formLayout->addRow("Arrl Section", sectionEditBox);
-
+        // Create an appropriate QLineEdit, put it in the List, give it an objname, and add it to layout
+        QLineEdit *qle = new QLineEdit;
+        editBoxes.append(qle); // Add this one to the QList<QLineEdit> list
+        QString objname = key;
+        objname.append("EditBox");
+        qle->setObjectName(objname);
+        formLayout->addRow(db->text_labels_for_keys[key], qle);
+        qDebug() << "StationDataTab::StationDataTab():" << key << db->text_labels_for_keys[key];
+    }
     setLayout(formLayout);
 
-#if 0
-    QVBoxLayout *mainLayout = new QVBoxLayout;
-    mainLayout->addWidget(callSignLabel);
-    mainLayout->addWidget(callSignEditBox);
-    mainLayout->addWidget(cityLabel);
-    mainLayout->addWidget(cityEditBox);
-    mainLayout->addWidget(stateLabel);
-    mainLayout->addWidget(stateEditBox);
-    mainLayout->addWidget(gridSquareLabel);
-    mainLayout->addWidget(gridSquareEditBox);
-    mainLayout->addWidget(nameLabel);
-    mainLayout->addWidget(nameEditBox);
-    mainLayout->addWidget(countyLabel);
-    mainLayout->addWidget(countyEditBox);
-    mainLayout->addWidget(countryLabel);
-    mainLayout->addWidget(countryEditBox);
-    mainLayout->addWidget(sectionLabel);
-    mainLayout->addWidget(sectionEditBox);
-    mainLayout->addStretch(1);
-    setLayout(mainLayout);
-#endif
-
     // My screen is 2560 x 1664  (640*4) x 1664
-    QRect r = callSignEditBox->frameGeometry();
-    qDebug() << "StationDataTab::StationDataTab(): Geo: x="<< r.x() << "y=" << r.y() << "h=" << r.height() << "w=" << r.width();
-    r = this->frameGeometry();
-    qDebug() << "StationDataTab::StationDataTab(): Geo: x="<< r.x() << "y=" << r.y() << "h=" << r.height() << "w=" << r.width();
+    // QRect r = callsignEditBox->frameGeometry();
+    // qDebug() << "StationDataTab::StationDataTab(): Geo: x="<< r.x() << "y=" << r.y() << "h=" << r.height() << "w=" << r.width();
+    // r = this->frameGeometry();
+    // qDebug() << "StationDataTab::StationDataTab(): Geo: x="<< r.x() << "y=" << r.y() << "h=" << r.height() << "w=" << r.width();
+}
 
+StationDataTab::~StationDataTab() {
+
+    // Delete all the QLineEdit objects
+    QListIterator<QLineEdit *> e(editBoxes);
+    while (e.hasNext() ) {
+        // QLineEdit *p = e.next();
+        // qDebug () << "Deleteing: ******* " << p->objectName();
+        // delete p;
+        delete e.next();
+    }
 }
 
 ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)

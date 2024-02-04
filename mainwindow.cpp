@@ -84,11 +84,16 @@ void MainWindow::launchConfigDialog() {
 
     // Bring up our tabbed config dialog box
     qDebug() << "MainWindow::launchConfigDialog(): Entered";
-    tabbedDialog = new TopLevelTabContainerDialog(db);
-    tabbedDialog->show();
-    tabbedDialog->exec();
+    tabbedDialogPtr = new TopLevelTabContainerDialog(db);
+
+    // If data is available, populate it here
+    // get_local_station_data_into_dialog(tabbedDialogPtr);
+    tabbedDialogPtr->show();
+    tabbedDialogPtr->exec();
+
+
     // Store the data here
-    delete tabbedDialog;
+    delete tabbedDialogPtr;
 }
 
 void MainWindow::changeConfigButtonTextColor() {
@@ -119,7 +124,6 @@ MainWindow::~MainWindow()
 #endif
    disconnect(c_invoke_config_dialog);
    delete db;
-   delete tabbedDialog;
 }
 
 void MainWindow::serial_port_detected(QString &s) {
@@ -158,57 +162,13 @@ void MainWindow::on_plainTextEdit_textChanged()
     serial_comms_p->write_serial_data();
 }
 
-void MainWindow::configPushButton_clicked()
-{
-    qDebug() << "MainWindow::configPushButton_clicked(): entered";
-    Ui::stationDialog sd_ui;
-    QDialog d;
-
-    sd_ui.setupUi(&d);
-    // Set the "OK" button label to "Save"
-    sd_ui.saveButtonBox->button(QDialogButtonBox::Ok)->setText("Save");
-
-// #error "Check database, if table exists, pre-populate fields before showing dialog"
-
-    // For testing - insert dummy values into dialog box
-    // set_dummy_data(sd_ui);
-    get_local_station_data(sd_ui);
-
-    int dialog_code = d.exec();
-
-    // User clicked Save - store data into local database
-    if ( dialog_code == QDialog::Accepted ) {
-        qDebug() << "MainWindow::configPushButton_clicked(): Storing values";
-        // Store all values in the local database
-        db->set_station_data_table_value_by_key("callsign", sd_ui.callSignLineEdit->text());
-        db->set_station_data_table_value_by_key("opname", sd_ui.nameLineEdit->text());
-        db->set_station_data_table_value_by_key("gridsquare", sd_ui.gridSquareLineEdit->text());
-        db->set_station_data_table_value_by_key("city", sd_ui.cityLineEdit->text());
-        db->set_station_data_table_value_by_key("state", sd_ui.stateLineEdit->text());
-        db->set_station_data_table_value_by_key("county", sd_ui.countyLineEdit->text());
-        db->set_station_data_table_value_by_key("country", sd_ui.countryLineEdit->text());
-        db->set_station_data_table_value_by_key("section", sd_ui.sectionLineEdit->text());
-        db->set_station_data_table_value_by_key("serialport", sd_ui.serialPortComboBox->currentText());
-
-        db->syncStationData_write();
-    }
-    else {
-        qDebug() << "MainWindow::configPushButton_clicked(): Aborting";
-    }
-
-    qDebug() << "MainWindow::configPushButton_clicked(): exiting";
-
-    // Don't forget to disconnect signals before station dialog is destroyed
-    // disconnect(sd_ui.callSignPlainTextEdit, &QPlainTextEdit::textChanged, this, &MainWindow::on_callSignPlainTextEdit_TextChanged);
-}
-
 void MainWindow::on_exitPushButton_clicked()
 {
     // Exit application
     QApplication::quit();
 }
 
-void MainWindow::set_dummy_data(Ui::stationDialog sd_ui) {
+void MainWindow::set_dummy_station_data(Ui::stationDialog sd_ui) {
     sd_ui.callSignLineEdit->setText("K1AY");
     sd_ui.nameLineEdit->setText("Chris");
     sd_ui.gridSquareLineEdit->setText("EL96av");
@@ -217,75 +177,47 @@ void MainWindow::set_dummy_data(Ui::stationDialog sd_ui) {
     sd_ui.countyLineEdit->setText("Charlotte");
     sd_ui.countryLineEdit->setText("USA");
     sd_ui.sectionLineEdit->setText("WCF");
-    sd_ui.serialPortComboBox->insertItem(0, "/dev/cu.usbserial-xxxyyyzzz");
-
 }
 
-bool MainWindow::get_local_station_data(Ui::stationDialog sd_ui) {
+#if 0
+bool MainWindow::get_local_station_data_into_dialog(TopLevelTabContainerDialog *pTabbedDialog) {
 
     QList<QString> keys = db->get_station_data_table_keys();
     db->dump_local_station_data();
 
     QList<QString>::iterator e;
     for (e = keys.begin(); e != keys.end(); ++e) {
+//  {0, "callsign", "opname", "gridsquare", "city", "state", "county", "country", "section"}
 
         if ( *e == QString("callsign") )
-            sd_ui.callSignLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("callsign", db->get_stataion_data_table_value_by_key(*e));
         else if ( *e == QString("opname") )
-            sd_ui.nameLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("opname", db->get_stataion_data_table_value_by_key(*e));
         else if ( *e == QString("gridsquare") )
-            sd_ui.gridSquareLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("gridsquare", db->get_stataion_data_table_value_by_key(*e));
         else if ( *e == QString("city") )
-            sd_ui.cityLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("city", db->get_stataion_data_table_value_by_key(*e));
         else if ( *e == QString("state") )
-            sd_ui.stateLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("state", db->get_stataion_data_table_value_by_key(*e));
         else if ( *e == QString("county") )
-            sd_ui.countyLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("county", db->get_stataion_data_table_value_by_key(*e));
         else if ( *e == QString("country") )
-            sd_ui.countryLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
+            pTabbedDialog->setFieldText("country", db->get_stataion_data_table_value_by_key(*e));
         else if ( *e == QString("section") )
-            sd_ui.sectionLineEdit->setText(db->get_stataion_data_table_value_by_key(*e));
-        else if ( *e == QString("serialport") ) {
-            QString stmp = db->get_stataion_data_table_value_by_key(*e);
-            if ( !stmp.isEmpty() ) {
-                qDebug() << "MainWindow::get_local_station_data(): *e is NOT EMPTY ********" << *e;
-                sd_ui.serialPortComboBox->insertItem(0, db->get_stataion_data_table_value_by_key(*e));
-            }
-        }
+            pTabbedDialog->setFieldText("section", db->get_stataion_data_table_value_by_key(*e));
         else {
             qDebug() << "MainWindow::get_local_station_data(): Invalid station table key:" << *e;
             return false;
         }
     }
-    populateSerialPortComboBox(sd_ui);
 
     return true;
 }
-
-void MainWindow::populateSerialPortComboBox(Ui::stationDialog sd_ui) {
-
-    // Populate the ComboBox with all available serial ports - current was set above
-    int index = sd_ui.serialPortComboBox->currentIndex();
-    qDebug() << "MainWindow::populateSerialPortComboBox(): comboBox index:" << index;
-
-    QString serialport = db->get_stataion_data_table_value_by_key("serialport");
-    if ( serialport.isEmpty() ) {
-        qDebug() << "MainWindow::populateSerialPortComboBox(): serialport field empty, setting placeholder text";
-        sd_ui.serialPortComboBox->setPlaceholderText("Select Serial Port");
-    }
-    else
-        sd_ui.serialPortComboBox->setPlaceholderText(serialport);
-
-    QList<QSerialPortInfo>::iterator i;
-    for (i = db->serial_port_list.begin(); i != db->serial_port_list.end(); ++i) {
-        qDebug() << "MainWindow::populateSerialPortComboBox(): i->portName():" << i->portName();
-        if ( i->portName().contains("cu.") )
-            sd_ui.serialPortComboBox->addItem(i->portName());
-    }
-}
+#endif
 
 void MainWindow::showEvent(QShowEvent *event) {
 
+    Q_UNUSED(event);
     qDebug() << "MainWindow::showEvent(): Override Entered";
     if ( init_called_once == false ) {
         init_called_once = true;
