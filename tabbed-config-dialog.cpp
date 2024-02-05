@@ -139,7 +139,7 @@ void TopLevelTabContainerDialog::user_pressed_cancel() {
 
 void TopLevelTabContainerDialog::save_tabbed_data_to_database() {
 
-    qDebug() << "TopLevelTabContainerDialog::save_tabbed_data_to_database()";
+    qDebug() << "TopLevelTabContainerDialog::save_tabbed_data_to_database(): Entered";
 
     // Store away the station_data values from the station data tab
     // The QLineEdit objects in the Station Data tab are enumerated in the editBoxes list
@@ -159,9 +159,10 @@ void TopLevelTabContainerDialog::save_tabbed_data_to_database() {
     while (s.hasNext() ) {
         QLineEdit *lep = s.next();
         QString objname = lep->objectName();
-        lep = pStationDataTab->findChild<QLineEdit *>(objname);
+        lep = pSysconfigTab->findChild<QLineEdit *>(objname);
         objname.remove("EditBox");
-        db->set_station_data_table_value_by_key(objname, lep->text());
+        db->set_sysconfig_table_value_by_key(objname, lep->text());
+        qDebug() << "TopLevelTabContainerDialog::save_tabbed_data_to_database(): objname, lep->text()" << objname << lep->text();
     }
     db->syncSysconfigData_write();
 }

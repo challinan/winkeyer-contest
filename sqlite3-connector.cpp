@@ -299,20 +299,15 @@ bool Sqlite3_connector::syncSysconfigData_write() {
     }
     op.append(fields + ") ");
 
-    // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
-    //     "county, ", "country, ", "section}
+    // {"serialport", "audiooutput", "audioinput"}
 
     op.append("VALUES (");
-    op.append("\"" + get_sysconfig_table_value_by_key("callsign") + "\"" + ",");
-    op.append("\"" + get_sysconfig_table_value_by_key("opname") + "\"" + ",");
-    op.append("\"" + get_sysconfig_table_value_by_key("gridsquare") + "\"" + ",");
-    op.append("\"" + get_sysconfig_table_value_by_key("city") + "\"" + ",");
-    op.append("\"" + get_sysconfig_table_value_by_key("state") + "\"" + ",");
-    op.append("\"" + get_sysconfig_table_value_by_key("county") + "\"" + ",");
-    op.append("\"" + get_sysconfig_table_value_by_key("country") + "\"" + ",");
+    op.append("\"" + get_sysconfig_table_value_by_key("serialport") + "\"" + ",");
+    op.append("\"" + get_sysconfig_table_value_by_key("audiooutput") + "\"" + ",");
 
     // Note we don't add a trailing comma to the last field here
-    op.append("\"" + get_sysconfig_table_value_by_key("section") + "\"");
+    op.append("\"" + get_sysconfig_table_value_by_key("audioinput") + "\"");
+
     op.append(");");
 
     // qDebug() wants to escape all double quotes in QSring so we do it this way
@@ -546,7 +541,7 @@ void Sqlite3_connector::set_station_data_table_value_by_key(QString key, QString
 }
 
 void Sqlite3_connector::set_sysconfig_table_value_by_key(QString key, QString value) {
-    station_data_list_local_map[key] = value;
+    sysconfig_data_list_local_map[key] = value;
 }
 
 int Sqlite3_connector::display_message_box(QString text, bool db_init) {
