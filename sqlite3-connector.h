@@ -23,13 +23,14 @@ public:
     Sqlite3_connector();
     ~Sqlite3_connector();
     bool initDatabase();
-    bool syncStationData_write();
+    // bool syncStationData_write();
     bool syncStationData_read();
-    bool syncSysconfigData_write();
+    // bool syncSysconfigData_write();
     bool syncSysconfigData_read();
-    bool syncContestData_write();
+    // bool syncContestData_write();
     bool syncContestData_read();
-    bool syncGeneric_write(QMap<int, QString> pMap);
+
+    bool syncGeneric_write(QMap<int, QString> pMapKeys);
 
     void setSerialPtr(SerialComms *p);
     // QList<QString> get_station_data_table_keys();
@@ -37,8 +38,10 @@ public:
     QList<QString> get_xxx_table_keys(QMap<int, QString> map);
     QString get_station_data_table_value_by_key(QString key);
     QString get_sysconfig_table_value_by_key(QString key);
+    QString get_contest_table_value_by_key(QString key);
     void set_station_data_table_value_by_key(QString key, QString value);
     void set_sysconfig_table_value_by_key(QString key, QString value);
+    void set_contest_table_value_by_key(QString key, QString value);
     void dump_local_station_data();
     void dump_local_sysconfig_data();
     int display_message_box(QString text, bool db_init=false);
@@ -49,6 +52,7 @@ public:
 private:
     bool createStationTable();
     bool createSysconfigTable();
+    bool createContestTable();
     int  getRowCount(QString table);
     bool dropStationTable();
     void enumerate_available_serial_ports();
@@ -119,10 +123,10 @@ public:
     };
 
 private:
-    // Station Dialog
-
+    // Temporary local copy of external database
     QMap<QString, QString> station_data_list_local_map;
     QMap<QString, QString> sysconfig_data_list_local_map;
+    QMap<QString, QString> contest_data_list_local_map;
 
 signals:
     void do_config_dialog();

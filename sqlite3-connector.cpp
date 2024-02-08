@@ -82,6 +82,11 @@ bool Sqlite3_connector::initDatabase() {
             db.close();
             return false;
         }
+        rc = createContestTable();
+        if ( rc == false ) {
+            db.close();
+            return false;
+        }
     }
 
     rc = syncStationData_read();
@@ -155,8 +160,12 @@ bool Sqlite3_connector::create_database_path() {
     return rc;
 }
 
+// TODO: Make this generic - collapes 3 into one generic routine
 bool Sqlite3_connector::createStationTable() {
 
+    // CREATE command needs to look like this:
+    // CREATE TABLE station_data (callsign TEXT, opname TEXT, gridsquare TEXT,
+    //                    city TEXT, state TEXT, county TEXT, country TEXT, section TEXT);
     bool rc;
 
     qDebug() << "Sqlite3_connector::createStationTable(): Entered";
@@ -180,6 +189,7 @@ bool Sqlite3_connector::createStationTable() {
     s.append(");");
 
     qDebug() << "Sqlite3_connector::createStationTable(): s =" << s;
+    Q_ASSERT(false);
 
     QSqlQuery q;
     q.prepare(s);
@@ -227,60 +237,43 @@ bool Sqlite3_connector::createSysconfigTable() {
 
 }
 
-bool Sqlite3_connector::syncStationData_write() {
-
+bool Sqlite3_connector::createContestTable() {
     bool rc;
-    int rowcount;
-    qDebug() << "Sqlite3_connector::syncStationData_write(): Entered";
 
-    // SQLite command needs to look like this:
-    // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section)
-    //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
+    qDebug() << "Sqlite3_connector::createContestTable(): Entered";
 
-    QString op = "INSERT INTO station_data (";
-    QString fields;
-    QMapIterator<int, QString> m(db_station_fields);
-    while (m.hasNext() ) {
-        m.next();
-        fields.append(m.value());
-        if ( m.hasNext() )
-            fields.append(", ");
-        else
-            fields.append(" ");     // Can't allow comma after last field
+    if ( !db.isValid() ) {
+        qDebug() << "Sqlite3_connector::createContestTable(): invalid database";
+        display_message_box("Invalid Database Connection - isValid() is false");
+        return false;
     }
-    op.append(fields + ") ");
 
-    // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
-    //     "county, ", "country, ", "section}
+    QMapIterator<int, QString> m(db_contest_fields);
 
-    op.append("VALUES (");
-    op.append("\"" + get_station_data_table_value_by_key("callsign") + "\"" + ",");
-    op.append("\"" + get_station_data_table_value_by_key("opname") + "\"" + ",");
-    op.append("\"" + get_station_data_table_value_by_key("gridsquare") + "\"" + ",");
-    op.append("\"" + get_station_data_table_value_by_key("city") + "\"" + ",");
-    op.append("\"" + get_station_data_table_value_by_key("state") + "\"" + ",");
-    op.append("\"" + get_station_data_table_value_by_key("county") + "\"" + ",");
-    op.append("\"" + get_station_data_table_value_by_key("country") + "\"" + ",");
+    QString s = "CREATE TABLE contest_data (";
+    while ( m.hasNext() ) {
+        m.next();
+        s.append(m.value());
+        s.append(" TEXT");
+        if ( m.hasNext() )
+            s.append(", ");
+    }
+    s.append(");");
 
-    // Note we don't add a trailing comma to the last field here
-    op.append("\"" + get_station_data_table_value_by_key("section") + "\"");
-    op.append(");");
-
-    // qDebug() wants to escape all double quotes in QSring so we do it this way
-    qDebug() << op.toUtf8().constData();
+    qDebug() << "Sqlite3_connector::createContestTable(): s =" << s;
 
     QSqlQuery q;
-    q.prepare(op);
+    q.prepare(s);
     rc = q.exec();
-    qDebug() << "Sqlite3_connector::syncStationData(): q.exec() returned" << rc;
+    if ( rc == false )
+        display_message_box("SQL query failed creating sysconfig table");
 
-    rowcount = getRowCount("station_data");
-    qDebug() << "Sqlite3_connector::syncStationData(): rowcount = " << rowcount;
-
+    qDebug() << "Sqlite3_connector::createContestTable(): q.exec() returned" << rc;
     return true;
+
 }
 
-bool Sqlite3_connector::syncGeneric_write(QMap<int, QString> pMap) {
+bool Sqlite3_connector::syncGeneric_write(QMap<int, QString> pMapKeys) {
 
     bool rc;
     int rowcount;
@@ -290,13 +283,27 @@ bool Sqlite3_connector::syncGeneric_write(QMap<int, QString> pMap) {
     // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section)
     //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
 
-    QString op = "INSERT INTO station_data (";
+    // TODO: This is super ugly - fix it - find a generic way
+    QString table_name;
+    if ( pMapKeys.first() == "callsign" )
+        table_name = "station_data";
+    if ( pMapKeys.first() == "serialport" )
+        table_name = "sysconfig_data";
+    if ( pMapKeys.first() == "sequence" )
+        table_name = "contest_data";
+
+
+    // Begin by creating a string like this: "INSERT INTO station_data ("
+    QString op = "INSERT INTO ";
+    op.append(table_name);
+    op.append(" (");
+
     QString fields;
-    QMapIterator<int, QString> m(pMap);
+    QMapIterator<int, QString> m(pMapKeys);
     while (m.hasNext() ) {
         m.next();
         fields.append(m.value());
-        pMap.insert(m.key(), m.value());
+        // pMapKeys.insert(m.key(), m.value());
         if ( m.hasNext() )
             fields.append(", ");
         else
@@ -308,16 +315,23 @@ bool Sqlite3_connector::syncGeneric_write(QMap<int, QString> pMap) {
     // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
     //     "county, ", "country, ", "section}
 
-    // Return iterator to front of list (before first item)
-    m.toFront();    // Return the iterator to "front" so we can use it again
+    // Return iterator to front of list (before first item) so we can use it again
+    m.toFront();
     while (m.hasNext() ) {
         m.next();
-        op.append("\"" + get_station_data_table_value_by_key(m.value()) + "\"" + ",");
+
+        // TODO: This is ugly - fix it - find a generic way
+        if ( pMapKeys.first() == "callsign" )
+            op.append("\"" + get_station_data_table_value_by_key(m.value()) + "\"");
+        else if ( pMapKeys.first() == "serialport" )
+            op.append("\"" + get_sysconfig_table_value_by_key(m.value()) + "\"");
+        else if ( pMapKeys.first() == "sequence" )
+            op.append("\"" + get_contest_table_value_by_key(m.value()) + "\"");
 
         if ( m.hasNext() )
-            fields.append(", ");
+            op.append(", ");
         else
-            fields.append(" ");     // Can't allow comma after last field
+            op.append(" ");     // Can't allow comma after last field
     }
 
     // Note we don't add a trailing comma to the last field here
@@ -328,59 +342,11 @@ bool Sqlite3_connector::syncGeneric_write(QMap<int, QString> pMap) {
 
     QSqlQuery q;
     q.prepare(op);
-//    rc = q.exec();
-    qDebug() << "Sqlite3_connector::syncStationData(): q.exec() returned" << rc;
+    rc = q.exec();
+    qDebug() << "Sqlite3_connector::syncGeneric_write(): q.exec() returned" << rc;
 
     rowcount = getRowCount("station_data");
-    qDebug() << "Sqlite3_connector::syncStationData(): rowcount = " << rowcount;
-
-    return true;
-}
-
-bool Sqlite3_connector::syncSysconfigData_write() {
-
-    bool rc;
-    int rowcount;
-    qDebug() << "Sqlite3_connector::syncSysconfigData_write(): Entered";
-
-    // SQLite command needs to look like this:
-    // INSERT INTO sysconfig_data (callsign, opname, gridsquare, city, state, county, country, section)
-    //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
-
-    QString op = "INSERT INTO sysconfig_data (";
-    QString fields;
-    QMapIterator<int, QString> m(db_sysconfig_fields);
-    while (m.hasNext() ) {
-        m.next();
-        fields.append(m.value());
-        if ( m.hasNext() )
-            fields.append(", ");
-        else
-            fields.append(" ");     // Can't allow comma after last field
-    }
-    op.append(fields + ") ");
-
-    // {"serialport", "audiooutput", "audioinput"}
-
-    op.append("VALUES (");
-    op.append("\"" + get_sysconfig_table_value_by_key("serialport") + "\"" + ",");
-    op.append("\"" + get_sysconfig_table_value_by_key("audiooutput") + "\"" + ",");
-
-    // Note we don't add a trailing comma to the last field here
-    op.append("\"" + get_sysconfig_table_value_by_key("audioinput") + "\"");
-
-    op.append(");");
-
-    // qDebug() wants to escape all double quotes in QSring so we do it this way
-    qDebug() << op.toUtf8().constData();
-
-    QSqlQuery q;
-    q.prepare(op);
-    rc = q.exec();
-    qDebug() << "Sqlite3_connector::syncSysconfigData_write(): q.exec() returned" << rc;
-
-    rowcount = getRowCount("sysconfig_data");
-    qDebug() << "Sqlite3_connector::syncSysconfigData_write(): rowcount = " << rowcount;
+    qDebug() << "Sqlite3_connector::syncGeneric_write(): rowcount = " << rowcount;
 
     return true;
 }
@@ -495,13 +461,7 @@ bool Sqlite3_connector::syncSysconfigData_read() {
     return rc;
 }
 
-bool Sqlite3_connector::syncContestData_write() {
-
-    return true;
-}
-
 bool Sqlite3_connector::syncContestData_read() {
-
     return true;
 }
 
@@ -564,14 +524,17 @@ QList<QString> Sqlite3_connector::get_xxx_table_keys(QMap<int, QString> map) {
 }
 
 QString Sqlite3_connector::get_station_data_table_value_by_key(QString key) {
-    // qDebug() << "Sqlite3_connector::get_station_data_table_value_by_key(): key" << key << "value" << station_data_list_local_map.value(key);
     return station_data_list_local_map.value(key);
 }
 
 QString Sqlite3_connector::get_sysconfig_table_value_by_key(QString key) {
-    // qDebug() << "Sqlite3_connector::get_station_data_table_value_by_key(): key" << key << "value" << station_data_list_local_map.value(key);
     return sysconfig_data_list_local_map.value(key);
 }
+
+QString Sqlite3_connector::get_contest_table_value_by_key(QString key) {
+    return contest_data_list_local_map.value(key);
+}
+
 
 void Sqlite3_connector::dump_local_station_data() {
 
@@ -601,6 +564,11 @@ void Sqlite3_connector::set_station_data_table_value_by_key(QString key, QString
 void Sqlite3_connector::set_sysconfig_table_value_by_key(QString key, QString value) {
     sysconfig_data_list_local_map[key] = value;
 }
+
+void Sqlite3_connector::set_contest_table_value_by_key(QString key, QString value) {
+    contest_data_list_local_map[key] = value;
+}
+
 
 int Sqlite3_connector::display_message_box(QString text, bool db_init) {
 

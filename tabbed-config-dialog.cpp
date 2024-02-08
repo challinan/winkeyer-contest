@@ -15,6 +15,11 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     tabWidget->addTab(pSysconfigTab, "System Config");
     qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Tabs Added";
 
+    // const QMap<int, QString>
+    pStationKeyFields = &db->db_station_fields;
+    pSysconfigKeyFields = &db->db_sysconfig_fields;
+    pContestKeyFields = &db->db_contest_fields;
+
     // Create two standard push buttons, and connect each of them to the appropriate slots in the dialog
     buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok
                                      | QDialogButtonBox::Cancel);
@@ -34,6 +39,7 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     // If data is available, populate it here
     get_local_station_data_into_dialog();
     get_local_sysconfig_data_into_dialog();
+    get_local_contest_data_into_dialog();
     connectStationTabTextChangedSignals();
 }
 
@@ -97,6 +103,30 @@ bool TopLevelTabContainerDialog::get_local_sysconfig_data_into_dialog() {
     return true;
 }
 
+bool TopLevelTabContainerDialog::get_local_contest_data_into_dialog() {
+
+    QList<QString> keys = db->get_xxx_table_keys(db->db_contest_fields);
+    // db->dump_local_contest_data();
+
+    QList<QString>::iterator e;
+    for (e = keys.begin(); e != keys.end(); ++e) {
+        // {"sequence", "section", "rst"}
+
+        if ( *e == QString("sequence") )
+            setFieldText<class ContestTab>(pContestTab, "sequence", db->get_contest_table_value_by_key(*e));
+        else if ( *e == QString("section") )
+            setFieldText<class ContestTab>(pContestTab, "section", db->get_contest_table_value_by_key(*e));
+        else if ( *e == QString("rst") )
+            setFieldText<class ContestTab>(pContestTab, "rst", db->get_contest_table_value_by_key(*e));
+        else {
+            qDebug() << "TopLevelTabContainerDialog::get_local_contest_data_into_dialog(): Invalid station table key:" << *e;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void TopLevelTabContainerDialog::connectStationTabTextChangedSignals(bool doConnect) {
 
     // Connect signals from all the QLineEdit items that indicate
@@ -126,9 +156,9 @@ void TopLevelTabContainerDialog::user_pressed_save() {
 
     qDebug() << "TopLevelTabContainerDialog::user_pressed_save(): Entered";
     // save_tabbed_data_to_database();
-    save_tabbed_data_to_database_template(pStationDataTab);
-    save_tabbed_data_to_database_template(pSysconfigTab);
-    save_tabbed_data_to_database_template(pContestTab);
+    save_tabbed_data_to_database_template<StationDataTab>(pStationDataTab);
+    save_tabbed_data_to_database_template<SystemConfigTab>(pSysconfigTab);
+    save_tabbed_data_to_database_template<ContestTab>(pContestTab);
 
     // Disconnect all the QLineEdit signals
     connectStationTabTextChangedSignals(false);
@@ -142,62 +172,6 @@ void TopLevelTabContainerDialog::user_pressed_cancel() {
     QDialog::reject();
 }
 
-#if 0
-void TopLevelTabContainerDialog::save_tabbed_data_to_database() {
-
-    qDebug() << "TopLevelTabContainerDialog::save_tabbed_data_to_database(): Entered";
-
-    // Store away the station_data values from the station data tab
-    // The QLineEdit objects in the Station Data tab are enumerated in the editBoxes list
-    QListIterator<QLineEdit *> e(pStationDataTab->dataEditBoxes);
-    while (e.hasNext() ) {
-        QLineEdit *lep = e.next();
-        QString objname = lep->objectName();
-        lep = pStationDataTab->findChild<QLineEdit *>(objname);
-        objname.remove("EditBox");
-        db->set_station_data_table_value_by_key(objname, lep->text());
-    }
-    // db->syncStationData_write();
-    db->syncGeneric_write(db->db_station_fields);;
-
-    // Store away the sysconfig values from the system config tab
-    // The QLineEdit objects in the System Config tab are enumerated in the editBoxes list
-    QListIterator<QLineEdit *> s(pSysconfigTab->dataEditBoxes);
-    while (s.hasNext() ) {
-        QLineEdit *lep = s.next();
-        QString objname = lep->objectName();
-        lep = pSysconfigTab->findChild<QLineEdit *>(objname);
-        objname.remove("EditBox");
-        db->set_sysconfig_table_value_by_key(objname, lep->text());
-        qDebug() << "TopLevelTabContainerDialog::save_tabbed_data_to_database(): objname, lep->text()" << objname << lep->text();
-    }
-    db->syncSysconfigData_write();
-}
-#endif
-
-template <typename T>
-void TopLevelTabContainerDialog::save_tabbed_data_to_database_template(T *tabPtr) {
-
-    // Store away the values from the associated tab
-    // The QLineEdit objects are enumerated in the editBoxes list in the individual classes
-    QListIterator<QLineEdit *> s = tabPtr->dataEditBoxes;
-    while (s.hasNext() ) {
-        QLineEdit *lep_tmp = s.next();
-        QString objname = lep_tmp->objectName();
-
-        lep_tmp = tabPtr->template findChild<QLineEdit *>(objname);
-        objname.remove("EditBox");
-
-        // Q_ASSERT(false);  // need to fix this to be type-specific
-        db->set_sysconfig_table_value_by_key(objname, lep_tmp->text());
-        qDebug() << "TopLevelTabContainerDialog::save_tabbed_data_to_database_template(): objname, leptmp->text()"
-                 << objname << lep_tmp->text();
-    }
-
-    // Q_ASSERT(false);  // need to fix this to be type-specific
-    db->syncStationData_write();
-    db->syncSysconfigData_write();
-}
 
 template <typename T>void TopLevelTabContainerDialog::setFieldText(T *tabPtr, QString key, QString value) {
 
@@ -235,9 +209,21 @@ TopLevelTabContainerDialog::~TopLevelTabContainerDialog() {
     delete tabWidget;
 }
 
+// ******************  Data Tab Base Class ************************ //
+DataTab::DataTab(Sqlite3_connector *p, QWidget *parent)
+    : QWidget(parent)
+{
+    db = p; // Unused
+}
+
+DataTab::~DataTab() {
+
+}
+
+
 // ******************  StationDataTab  **************************** //
 StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
-    : QWidget(parent)
+    : DataTab(p, parent)
 {
     db = p;     // Pointer to sqlite3_connector database engine
     formLayout = new QFormLayout(this);
@@ -261,6 +247,11 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
     setLayout(formLayout);
 }
 
+void StationDataTab::set_xxx_table_value_by_key(QString objname, QString value) {
+    db->set_station_data_table_value_by_key(objname, value);
+}
+
+
 // TODO: Combine this code with other tab destructors - make body static in top level tab?
 StationDataTab::~StationDataTab() {
 
@@ -276,7 +267,7 @@ StationDataTab::~StationDataTab() {
 }
 
 ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
-    : QWidget(parent)
+    : DataTab(p, parent)
 {
     db = p;     // Pointer to sqlite3_connector database engine
 
@@ -302,6 +293,10 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
     setLayout(formLayout);
 }
 
+void ContestTab::set_xxx_table_value_by_key(QString key, QString value) {
+    db->set_contest_table_value_by_key(key, value);
+}
+
 ContestTab::~ContestTab() {
 
     // Delete all the QLineEdit objects
@@ -316,7 +311,7 @@ ContestTab::~ContestTab() {
 }
 
 SystemConfigTab::SystemConfigTab(Sqlite3_connector *p, QWidget *parent)
-    : QWidget(parent)
+    : DataTab(p, parent)
 {
     db = p;     // Pointer to sqlite3_connector database engine
 
@@ -342,6 +337,10 @@ SystemConfigTab::SystemConfigTab(Sqlite3_connector *p, QWidget *parent)
         qDebug() << "SystemConfigTab::SystemConfigTab():" << key << db->text_labels_for_sysconfig_keys[key];
     }
     setLayout(formLayout);
+}
+
+void SystemConfigTab::set_xxx_table_value_by_key(QString key, QString value) {
+    db->set_sysconfig_table_value_by_key(key, value);
 }
 
 // TODO: Combine this code with other tab destructors - make body static in top level tab?

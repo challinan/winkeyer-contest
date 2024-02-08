@@ -85,11 +85,6 @@ void MainWindow::launchConfigDialog() {
     qDebug() << "MainWindow::launchConfigDialog(): Entered";
     pTabbedDialogPtr = new TopLevelTabContainerDialog(db);
 
-    // If data is available, populate it here
-    StationDataTab *pStationDataTab = pTabbedDialogPtr->getStationDataTabPtr<StationDataTab>();
-    ContestTab *pContestTab;
-    SystemConfigTab *pSysconfigTab;
-
     // get_local_station_data_into_dialog(tabbedDialogPtr);
     pTabbedDialogPtr->show();
     pTabbedDialogPtr->exec();
@@ -180,42 +175,6 @@ void MainWindow::set_dummy_station_data(Ui::stationDialog sd_ui) {
     sd_ui.countryLineEdit->setText("USA");
     sd_ui.sectionLineEdit->setText("WCF");
 }
-
-#if 0
-bool MainWindow::get_local_station_data_into_dialog(TopLevelTabContainerDialog *pTabbedDialog) {
-
-    QList<QString> keys = db->get_station_data_table_keys();
-    db->dump_local_station_data();
-
-    QList<QString>::iterator e;
-    for (e = keys.begin(); e != keys.end(); ++e) {
-//  {0, "callsign", "opname", "gridsquare", "city", "state", "county", "country", "section"}
-
-        if ( *e == QString("callsign") )
-            pTabbedDialog->setFieldText("callsign", db->get_station_data_table_value_by_key(*e));
-        else if ( *e == QString("opname") )
-            pTabbedDialog->setFieldText("opname", db->get_station_data_table_value_by_key(*e));
-        else if ( *e == QString("gridsquare") )
-            pTabbedDialog->setFieldText("gridsquare", db->get_station_data_table_value_by_key(*e));
-        else if ( *e == QString("city") )
-            pTabbedDialog->setFieldText("city", db->get_station_data_table_value_by_key(*e));
-        else if ( *e == QString("state") )
-            pTabbedDialog->setFieldText("state", db->get_station_data_table_value_by_key(*e));
-        else if ( *e == QString("county") )
-            pTabbedDialog->setFieldText("county", db->get_station_data_table_value_by_key(*e));
-        else if ( *e == QString("country") )
-            pTabbedDialog->setFieldText("country", db->get_station_data_table_value_by_key(*e));
-        else if ( *e == QString("section") )
-            pTabbedDialog->setFieldText("section", db->get_station_data_table_value_by_key(*e));
-        else {
-            qDebug() << "MainWindow::get_local_station_data(): Invalid station table key:" << *e;
-            return false;
-        }
-    }
-
-    return true;
-}
-#endif
 
 void MainWindow::showEvent(QShowEvent *event) {
 
