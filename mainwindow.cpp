@@ -1,6 +1,5 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "ui_station_data.h"
 
 #define SKIP_SERIAL_PORT_INIT
 // #define DBCONFIG_DEBUG  // When enabled, erases the db file on every run
@@ -84,16 +83,19 @@ void MainWindow::launchConfigDialog() {
 
     // Bring up our tabbed config dialog box
     qDebug() << "MainWindow::launchConfigDialog(): Entered";
-    tabbedDialogPtr = new TopLevelTabContainerDialog(db);
+    pTabbedDialogPtr = new TopLevelTabContainerDialog(db);
 
     // If data is available, populate it here
-    // get_local_station_data_into_dialog(tabbedDialogPtr);
-    tabbedDialogPtr->show();
-    tabbedDialogPtr->exec();
+    StationDataTab *pStationDataTab = pTabbedDialogPtr->getStationDataTabPtr<StationDataTab>();
+    ContestTab *pContestTab;
+    SystemConfigTab *pSysconfigTab;
 
+    // get_local_station_data_into_dialog(tabbedDialogPtr);
+    pTabbedDialogPtr->show();
+    pTabbedDialogPtr->exec();
 
     // Store the data here
-    delete tabbedDialogPtr;
+    delete pTabbedDialogPtr;
 }
 
 void MainWindow::changeConfigButtonTextColor() {

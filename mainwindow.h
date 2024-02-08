@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QSerialPortInfo>
 #include "serialcomms.h"
+#include "ui_station_data.h"
 #include "sqlite3-connector.h"
 #include "tabbed-config-dialog.h"
 
@@ -47,7 +48,7 @@ private:
     bool initialization_succeeded;
     bool init_called_once;
     QTimer *blinkTimer;
-    TopLevelTabContainerDialog *tabbedDialogPtr;
+    TopLevelTabContainerDialog *pTabbedDialogPtr;
 
 protected:
     void showEvent(QShowEvent *event) override;

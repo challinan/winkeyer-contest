@@ -18,8 +18,8 @@
 
 // Forward declarations
 class StationDataTab;
-class ContestTab;
 class SystemConfigTab;
+class ContestTab;
 
 // The top level container holding the tab Widgets
 class TopLevelTabContainerDialog : public QDialog
@@ -33,8 +33,16 @@ public:
     void connectStationTabTextChangedSignals(bool doConnect=true);
     template <typename T>void setFieldText(T *tabPtr, QString s, QString t);
 
+     template <typename T>
+    T *getStationDataTabPtr() { return pStationDataTab; }
+
+
 private:
     void save_tabbed_data_to_database();
+
+    template <typename T>
+    void save_tabbed_data_to_database_template(T *tabPtr);
+
     bool get_local_station_data_into_dialog();
     bool get_local_sysconfig_data_into_dialog();
 
@@ -46,12 +54,15 @@ private:
     StationDataTab *pStationDataTab;
     ContestTab *pContestTab;
     SystemConfigTab *pSysconfigTab;
+    QVBoxLayout *pMainLayout;
 
 private slots:
     void user_pressed_save();
     void station_data_changed();
     void user_pressed_cancel();
 };
+
+// **********************  StationDataTab  *************************** //
 
 // This is the QWidget holding station data
 class StationDataTab : public QWidget
@@ -64,26 +75,18 @@ public:
 
 private:
     Sqlite3_connector *db;
+    QFormLayout *formLayout;
+    QMap<QString, QString> data_list_local_map;
 
 public:
-    QList<QLineEdit *> stationDataEditBoxes;    // These are the QLineEdit boxes in the tab
+    QList<QLineEdit *> dataEditBoxes;    // These are the QLineEdit boxes in the tab
 
 signals:
     void selectionChanged();
 
 };
 
-// This is the QWidget holding contest configuration data
-class ContestTab : public QWidget
-{
-    Q_OBJECT
-
-public:
-    explicit ContestTab(Sqlite3_connector *p, QWidget *parent = nullptr);
-
-private:
-    Sqlite3_connector *db;
-};
+// **********************  SystemConfigTab  *************************** //
 
 // This is the QWidget holding system configuration data
 class SystemConfigTab : public QWidget
@@ -96,10 +99,32 @@ public:
 
 private:
     Sqlite3_connector *db;
+    QFormLayout *formLayout;
+    QMap<QString, QString> data_list_local_map;
 
 public:
-    QList<QLineEdit *> sysconfigEditBoxes;
+    QList<QLineEdit *> dataEditBoxes;
 
+};
+
+// **********************  ContestTab  *************************** //
+
+// This is the QWidget holding contest configuration data
+class ContestTab : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit ContestTab(Sqlite3_connector *p, QWidget *parent = nullptr);
+    ~ContestTab();
+
+private:
+    Sqlite3_connector *db;
+    QFormLayout *formLayout;
+    QMap<QString, QString> data_list_local_map;
+
+public:
+    QList<QLineEdit *> dataEditBoxes;
 };
 
 #endif // TABBEDDIALOG_H

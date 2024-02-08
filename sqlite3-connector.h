@@ -27,9 +27,14 @@ public:
     bool syncStationData_read();
     bool syncSysconfigData_write();
     bool syncSysconfigData_read();
+    bool syncContestData_write();
+    bool syncContestData_read();
+    bool syncGeneric_write(QMap<int, QString> pMap);
+
     void setSerialPtr(SerialComms *p);
-    QList<QString> get_station_data_table_keys();
-    QList<QString> get_sysconfig_table_keys();
+    // QList<QString> get_station_data_table_keys();
+    // QList<QString> get_sysconfig_table_keys();
+    QList<QString> get_xxx_table_keys(QMap<int, QString> map);
     QString get_station_data_table_value_by_key(QString key);
     QString get_sysconfig_table_value_by_key(QString key);
     void set_station_data_table_value_by_key(QString key, QString value);
@@ -44,7 +49,7 @@ public:
 private:
     bool createStationTable();
     bool createSysconfigTable();
-    int  getRowCount();
+    int  getRowCount(QString table);
     bool dropStationTable();
     void enumerate_available_serial_ports();
     bool database_initialized;
@@ -62,7 +67,6 @@ private:
 public:
     QList<QSerialPortInfo> serial_port_list;
 
-private:
     // This defines the station database table layout - the one source of truth
     const QMap<int, QString> db_station_fields = {
         {0, "callsign"},
@@ -73,14 +77,20 @@ private:
         {5, "county"},
         {6, "country"},
         {7, "section"}
-        // {8, "serialport"}
     };
 
     // This defines the system database table layout - the one source of truth
-    const QMap<int, QString>db_sysconfig_fields = {
+    const QMap<int, QString> db_sysconfig_fields = {
         {0, "serialport"},
         {1, "audiooutput"},
         {2, "audioinput"}
+    };
+
+    // This defines the contest database table layout - the one source of truth
+    const QMap<int, QString> db_contest_fields = {
+        {0, "sequence"},
+        {1, "section"},
+        {2, "rst"}
     };
 
 public:
@@ -97,13 +107,20 @@ public:
     };
 
     const QMap<QString, QString> text_labels_for_sysconfig_keys = {
-    {"serialport", "Serial Port"},
-    {"audiooutput", "Audio Output Device"},
-    {"audioinput", "Audio Input Device"}
+        {"serialport", "Serial Port"},
+        {"audiooutput", "Audio Output Device"},
+        {"audioinput", "Audio Input Device"}
+    };
+
+    const QMap<QString, QString> text_labels_for_contest_keys = {
+        {"sequence", "Sequence Number"},
+        {"section", "ARRL Section"},
+        {"rst", "Signal Report (RST)"}
     };
 
 private:
     // Station Dialog
+
     QMap<QString, QString> station_data_list_local_map;
     QMap<QString, QString> sysconfig_data_list_local_map;
 

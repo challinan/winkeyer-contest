@@ -78,6 +78,10 @@ bool Sqlite3_connector::initDatabase() {
             return false;
         }
         rc = createSysconfigTable();
+        if ( rc == false ) {
+            db.close();
+            return false;
+        }
     }
 
     rc = syncStationData_read();
@@ -270,7 +274,64 @@ bool Sqlite3_connector::syncStationData_write() {
     rc = q.exec();
     qDebug() << "Sqlite3_connector::syncStationData(): q.exec() returned" << rc;
 
-    rowcount = getRowCount();
+    rowcount = getRowCount("station_data");
+    qDebug() << "Sqlite3_connector::syncStationData(): rowcount = " << rowcount;
+
+    return true;
+}
+
+bool Sqlite3_connector::syncGeneric_write(QMap<int, QString> pMap) {
+
+    bool rc;
+    int rowcount;
+    qDebug() << "Sqlite3_connector::syncGeneric_write(): Entered";
+
+    // SQLite command needs to look like this:
+    // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section)
+    //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
+
+    QString op = "INSERT INTO station_data (";
+    QString fields;
+    QMapIterator<int, QString> m(pMap);
+    while (m.hasNext() ) {
+        m.next();
+        fields.append(m.value());
+        pMap.insert(m.key(), m.value());
+        if ( m.hasNext() )
+            fields.append(", ");
+        else
+            fields.append(" ");     // Can't allow comma after last field
+    }
+    op.append(fields + ") ");
+    op.append("VALUES (");  // Continue building SQlite command
+
+    // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
+    //     "county, ", "country, ", "section}
+
+    // Return iterator to front of list (before first item)
+    m.toFront();    // Return the iterator to "front" so we can use it again
+    while (m.hasNext() ) {
+        m.next();
+        op.append("\"" + get_station_data_table_value_by_key(m.value()) + "\"" + ",");
+
+        if ( m.hasNext() )
+            fields.append(", ");
+        else
+            fields.append(" ");     // Can't allow comma after last field
+    }
+
+    // Note we don't add a trailing comma to the last field here
+    op.append(");");
+
+    // qDebug() wants to escape all double quotes in QSring so we do it this way
+    qDebug() << "***********>>>>>>>>>>>: " << op.toUtf8().constData();
+
+    QSqlQuery q;
+    q.prepare(op);
+//    rc = q.exec();
+    qDebug() << "Sqlite3_connector::syncStationData(): q.exec() returned" << rc;
+
+    rowcount = getRowCount("station_data");
     qDebug() << "Sqlite3_connector::syncStationData(): rowcount = " << rowcount;
 
     return true;
@@ -318,7 +379,7 @@ bool Sqlite3_connector::syncSysconfigData_write() {
     rc = q.exec();
     qDebug() << "Sqlite3_connector::syncSysconfigData_write(): q.exec() returned" << rc;
 
-    rowcount = getRowCount();
+    rowcount = getRowCount("sysconfig_data");
     qDebug() << "Sqlite3_connector::syncSysconfigData_write(): rowcount = " << rowcount;
 
     return true;
@@ -434,17 +495,28 @@ bool Sqlite3_connector::syncSysconfigData_read() {
     return rc;
 }
 
-int  Sqlite3_connector::getRowCount() {
+bool Sqlite3_connector::syncContestData_write() {
+
+    return true;
+}
+
+bool Sqlite3_connector::syncContestData_read() {
+
+    return true;
+}
+
+int  Sqlite3_connector::getRowCount(QString table) {
 
     int rowcount = 0;
     bool rc;
 
-    QString op = "SELECT callsign FROM station_data;";
+    QString op = "SELECT Count(*) FROM ";
+    op.append(table + ";");
     QSqlQuery q;
     q.prepare(op);
     rc = q.exec();
     if ( !rc ) {
-        // display_message_box("Database query failed getting row count");
+        display_message_box("Database query failed getting row count");
         return -1;
     }
 
@@ -478,31 +550,17 @@ bool Sqlite3_connector::dropStationTable() {
     return true;
 }
 
-// TODO Collapes these two functions into one
-QList<QString> Sqlite3_connector::get_station_data_table_keys() {
+QList<QString> Sqlite3_connector::get_xxx_table_keys(QMap<int, QString> map) {
 
     QList<QString> s;
 
-    QMapIterator<int, QString> m(db_station_fields);
+    QMapIterator<int, QString> m(map);
     while (m.hasNext() ) {
         m.next();
+        qDebug() << "QList<QString> Sqlite3_connector::get_xxx_table_keys()" << m.value();
         s.append(m.value());
     }
     return s;
-}
-
-QList<QString> Sqlite3_connector::get_sysconfig_table_keys() {
-
-    QList<QString> s;
-
-    QMapIterator<int, QString> m(db_sysconfig_fields);
-    while (m.hasNext() ) {
-        m.next();
-        qDebug() << "QList<QString> Sqlite3_connector::get_sysconfig_table_keys()" << m.value();
-        s.append(m.value());
-    }
-    return s;
-
 }
 
 QString Sqlite3_connector::get_station_data_table_value_by_key(QString key) {
