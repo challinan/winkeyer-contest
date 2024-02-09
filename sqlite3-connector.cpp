@@ -72,24 +72,26 @@ bool Sqlite3_connector::initDatabase() {
             return false;
         }
 
-        rc = createStationTable();
-        if ( rc == false ) {
-            db.close();
-            return false;
-        }
-        rc = createSysconfigTable();
-        if ( rc == false ) {
-            db.close();
-            return false;
-        }
-        rc = createContestTable();
-        if ( rc == false ) {
-            db.close();
-            return false;
+        // Create the station tables defined in this class header
+        QListIterator<QString> tables(database_tables);
+        QListIterator<QMap<int, QString>> fields(db_field_maps);
+
+        while ( tables.hasNext() ) {
+            rc = createDbTable(fields.next(), tables.next());
+            if ( rc == false ) {
+                db.close();
+                return false;
+            }
         }
     }
 
     rc = syncStationData_read();
+    if ( rc == false ) {
+        db.close();
+        return false;
+    }
+
+    rc = syncContestData_read();
     if ( rc == false ) {
         db.close();
         return false;
@@ -160,25 +162,24 @@ bool Sqlite3_connector::create_database_path() {
     return rc;
 }
 
-// TODO: Make this generic - collapes 3 into one generic routine
-bool Sqlite3_connector::createStationTable() {
+bool Sqlite3_connector::createDbTable(QMap<int, QString> fields_map, QString tablename) {
 
     // CREATE command needs to look like this:
-    // CREATE TABLE station_data (callsign TEXT, opname TEXT, gridsquare TEXT,
-    //                    city TEXT, state TEXT, county TEXT, country TEXT, section TEXT);
+    // CREATE TABLE table_name (field1 TEXT, field2 TEXT, field3 TEXT);
     bool rc;
 
-    qDebug() << "Sqlite3_connector::createStationTable(): Entered";
+    qDebug() << "Sqlite3_connector::createDbTable(): Entered:" << fields_map << tablename;
+    return(true);
 
     if ( !db.isValid() ) {
-        qDebug() << "Sqlite3_connector::createStationTable(): invalid database";
+        qDebug() << "Sqlite3_connector::createDbTable(): invalid database";
         display_message_box("Invalid Database Connection - isValid() is false");
         return false;
     }
 
-    QMapIterator<int, QString> m(db_station_fields);
+    QMapIterator<int, QString> m(fields_map);
 
-    QString s = "CREATE TABLE station_data (";
+    QString s = "CREATE TABLE " + tablename + " (";
     while ( m.hasNext() ) {
         m.next();
         s.append(m.value());
@@ -188,8 +189,7 @@ bool Sqlite3_connector::createStationTable() {
     }
     s.append(");");
 
-    qDebug() << "Sqlite3_connector::createStationTable(): s =" << s;
-    Q_ASSERT(false);
+    qDebug() << "Sqlite3_connector::createDbTable(): s =" << s;
 
     QSqlQuery q;
     q.prepare(s);
@@ -197,86 +197,14 @@ bool Sqlite3_connector::createStationTable() {
     if ( rc == false )
         display_message_box("SQL query failed creating station table");
 
-    qDebug() << "Sqlite3_connector::createStationTable(): q.exec() returned" << rc;
-    return true;
-}
-
-bool Sqlite3_connector::createSysconfigTable() {
-    bool rc;
-
-    qDebug() << "Sqlite3_connector::createSysconfigTable(): Entered";
-
-    if ( !db.isValid() ) {
-        qDebug() << "Sqlite3_connector::createSysconfigTable(): invalid database";
-        display_message_box("Invalid Database Connection - isValid() is false");
-        return false;
-    }
-
-    QMapIterator<int, QString> m(db_sysconfig_fields);
-
-    QString s = "CREATE TABLE sysconfig_data (";
-    while ( m.hasNext() ) {
-        m.next();
-        s.append(m.value());
-        s.append(" TEXT");
-        if ( m.hasNext() )
-            s.append(", ");
-    }
-    s.append(");");
-
-    qDebug() << "Sqlite3_connector::createSysconfigTable(): s =" << s;
-
-    QSqlQuery q;
-    q.prepare(s);
-    rc = q.exec();
-    if ( rc == false )
-        display_message_box("SQL query failed creating sysconfig table");
-
-    qDebug() << "Sqlite3_connector::createSysconfigTable(): q.exec() returned" << rc;
+    qDebug() << "Sqlite3_connector::createDbTable(): q.exec() returned" << rc;
     return true;
 
 }
 
-bool Sqlite3_connector::createContestTable() {
-    bool rc;
-
-    qDebug() << "Sqlite3_connector::createContestTable(): Entered";
-
-    if ( !db.isValid() ) {
-        qDebug() << "Sqlite3_connector::createContestTable(): invalid database";
-        display_message_box("Invalid Database Connection - isValid() is false");
-        return false;
-    }
-
-    QMapIterator<int, QString> m(db_contest_fields);
-
-    QString s = "CREATE TABLE contest_data (";
-    while ( m.hasNext() ) {
-        m.next();
-        s.append(m.value());
-        s.append(" TEXT");
-        if ( m.hasNext() )
-            s.append(", ");
-    }
-    s.append(");");
-
-    qDebug() << "Sqlite3_connector::createContestTable(): s =" << s;
-
-    QSqlQuery q;
-    q.prepare(s);
-    rc = q.exec();
-    if ( rc == false )
-        display_message_box("SQL query failed creating sysconfig table");
-
-    qDebug() << "Sqlite3_connector::createContestTable(): q.exec() returned" << rc;
-    return true;
-
-}
-
-bool Sqlite3_connector::syncGeneric_write(QMap<int, QString> pMapKeys) {
+bool Sqlite3_connector::syncGeneric_write() {
 
     bool rc;
-    int rowcount;
     qDebug() << "Sqlite3_connector::syncGeneric_write(): Entered";
 
     // SQLite command needs to look like this:
@@ -284,69 +212,67 @@ bool Sqlite3_connector::syncGeneric_write(QMap<int, QString> pMapKeys) {
     //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
 
     // TODO: This is super ugly - fix it - find a generic way
-    QString table_name;
-    if ( pMapKeys.first() == "callsign" )
-        table_name = "station_data";
-    if ( pMapKeys.first() == "serialport" )
-        table_name = "sysconfig_data";
-    if ( pMapKeys.first() == "sequence" )
-        table_name = "contest_data";
+    QListIterator<QString> dbtables(database_tables);
 
+    while (dbtables.hasNext() ) {
+        QString table_name = dbtables.next();
+        qDebug() << " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << table_name;
+        const QMap tableMap = get_mapfields_from_tablename.value(table_name);
 
-    // Begin by creating a string like this: "INSERT INTO station_data ("
-    QString op = "INSERT INTO ";
-    op.append(table_name);
-    op.append(" (");
+        // Begin by creating a string like this: "INSERT INTO station_data ("
+        QString op = "INSERT INTO ";
+        op.append(table_name);
+        op.append(" (");
 
-    QString fields;
-    QMapIterator<int, QString> m(pMapKeys);
-    while (m.hasNext() ) {
-        m.next();
-        fields.append(m.value());
-        // pMapKeys.insert(m.key(), m.value());
-        if ( m.hasNext() )
-            fields.append(", ");
-        else
-            fields.append(" ");     // Can't allow comma after last field
-    }
-    op.append(fields + ") ");
-    op.append("VALUES (");  // Continue building SQlite command
+        QString fields;
+        QMapIterator<int, QString> m(tableMap);     // Iterate through table identified by dbtables above
+        while (m.hasNext() ) {
+            m.next();
+            fields.append(m.value());
+            if ( m.hasNext() )
+                fields.append(", ");
+            else
+                fields.append(" ");     // Can't allow comma after last field
+        }
+        op.append(fields + ") ");
+        op.append("VALUES (");  // Continue building SQlite command
 
-    // "callsign, ", "opname, ", "gridsquare, ", "city, ", "state, ",
-    //     "county, ", "country, ", "section}
+        // Return iterator to front of list (before first item) so we can use it again
+        m.toFront();    // database table map
+        while (m.hasNext() ) {
+            m.next();
+            qDebug() << m.key() << m.value();
 
-    // Return iterator to front of list (before first item) so we can use it again
-    m.toFront();
-    while (m.hasNext() ) {
-        m.next();
+            // TODO: This is ugly - fix it - find a generic way
+            // const QMap tableMap = get_mapfields_from_tablename.value(table_name);
+            if ( table_name == "station_data" )
+                op.append("\"" + get_station_data_table_value_by_key(m.value()) + "\"");
+            else if ( table_name == "sysconfig_data" )
+                op.append("\"" + get_sysconfig_table_value_by_key(m.value()) + "\"");
+            else if ( table_name == "contest_data" )
+                op.append("\"" + get_contest_table_value_by_key(m.value()) + "\"");
 
-        // TODO: This is ugly - fix it - find a generic way
-        if ( pMapKeys.first() == "callsign" )
-            op.append("\"" + get_station_data_table_value_by_key(m.value()) + "\"");
-        else if ( pMapKeys.first() == "serialport" )
-            op.append("\"" + get_sysconfig_table_value_by_key(m.value()) + "\"");
-        else if ( pMapKeys.first() == "sequence" )
-            op.append("\"" + get_contest_table_value_by_key(m.value()) + "\"");
+            if ( m.hasNext() )
+                op.append(", ");
+            else
+                op.append(" ");     // Can't allow comma after last field
+        }
 
-        if ( m.hasNext() )
-            op.append(", ");
-        else
-            op.append(" ");     // Can't allow comma after last field
-    }
+        // Note we don't add a trailing comma to the last field here
+        op.append(");");
 
-    // Note we don't add a trailing comma to the last field here
-    op.append(");");
+        // qDebug() wants to escape all double quotes in QSring so we do it this way
+        qDebug() << "***********>>>>>>>>>>>: " << op.toUtf8().constData();
 
-    // qDebug() wants to escape all double quotes in QSring so we do it this way
-    qDebug() << "***********>>>>>>>>>>>: " << op.toUtf8().constData();
+        QSqlQuery q;
+        q.prepare(op);
+        rc = q.exec();
+        if ( rc == false ) {
+            qDebug() << "Sqlite3_connector::syncGeneric_write(): q.exec() returned" << rc;
+            return false;
+        }
 
-    QSqlQuery q;
-    q.prepare(op);
-    rc = q.exec();
-    qDebug() << "Sqlite3_connector::syncGeneric_write(): q.exec() returned" << rc;
-
-    rowcount = getRowCount("station_data");
-    qDebug() << "Sqlite3_connector::syncGeneric_write(): rowcount = " << rowcount;
+    }  // while (iterate through database tables)
 
     return true;
 }
@@ -462,7 +388,56 @@ bool Sqlite3_connector::syncSysconfigData_read() {
 }
 
 bool Sqlite3_connector::syncContestData_read() {
-    return true;
+    bool rc, result_valid;
+    QMapIterator<int, QString> i(db_contest_fields);
+
+#ifdef FETCH_LAST
+    // Fetch the last row from the contest data table
+    QString op = "SELECT * FROM contest_data ORDER BY rowid DESC LIMIT 1;";
+
+#else
+    // Construct the query
+    QString op = "SELECT ";
+    while (i.hasNext() ) {
+        i.next();
+        op.append(i.value());
+        if ( i.hasNext() )
+            op.append(", ");
+        else
+            op.append(" ");     // Can't allow comma after last field
+    }
+    op.append("FROM contest_data;");
+    qDebug() << op;
+#endif
+
+    qDebug() << "Sqlite3_connector::syncContestData_read(): CMD" << op;
+
+    QSqlQuery q;
+    q.prepare(op);
+    rc = q.exec();
+
+    // Query results are invalid unless isActive() and isSelect() are both true
+    if ( !q.isActive() || !q.isSelect() ) {
+        display_message_box("Database query failed - invalid reading contest_data table");
+        return false;
+    }
+
+    qDebug() << "Sqlite3_connector::syncContestData_read(): SQL Query:" << rc;
+
+    result_valid = q.first();  // Position query to first returned result
+    while ( result_valid ) {
+        // Return the iterator to the front of the list (before first item)
+        i.toFront();
+        while (i.hasNext() ) {
+            i.next();
+            QString st = i.value();
+            // Populate our local copy of contest data
+            contest_data_list_local_map[st] = q.value(st).toString();
+        }
+        result_valid = q.next();
+    }
+
+    return rc;
 }
 
 int  Sqlite3_connector::getRowCount(QString table) {
@@ -535,6 +510,17 @@ QString Sqlite3_connector::get_contest_table_value_by_key(QString key) {
     return contest_data_list_local_map.value(key);
 }
 
+void Sqlite3_connector::set_station_data_table_value_by_key(QString key, QString value) {
+    station_data_list_local_map[key] = value;
+}
+
+void Sqlite3_connector::set_sysconfig_table_value_by_key(QString key, QString value) {
+    sysconfig_data_list_local_map[key] = value;
+}
+
+void Sqlite3_connector::set_contest_table_value_by_key(QString key, QString value) {
+    contest_data_list_local_map[key] = value;
+}
 
 void Sqlite3_connector::dump_local_station_data() {
 
@@ -556,19 +542,6 @@ void Sqlite3_connector::dump_local_sysconfig_data() {
         qDebug() << m.key() << ":" << m.value();
     }
 }
-
-void Sqlite3_connector::set_station_data_table_value_by_key(QString key, QString value) {
-    station_data_list_local_map[key] = value;
-}
-
-void Sqlite3_connector::set_sysconfig_table_value_by_key(QString key, QString value) {
-    sysconfig_data_list_local_map[key] = value;
-}
-
-void Sqlite3_connector::set_contest_table_value_by_key(QString key, QString value) {
-    contest_data_list_local_map[key] = value;
-}
-
 
 int Sqlite3_connector::display_message_box(QString text, bool db_init) {
 

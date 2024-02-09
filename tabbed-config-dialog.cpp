@@ -159,6 +159,7 @@ void TopLevelTabContainerDialog::user_pressed_save() {
     save_tabbed_data_to_database_template<StationDataTab>(pStationDataTab);
     save_tabbed_data_to_database_template<SystemConfigTab>(pSysconfigTab);
     save_tabbed_data_to_database_template<ContestTab>(pContestTab);
+    db->syncGeneric_write();
 
     // Disconnect all the QLineEdit signals
     connectStationTabTextChangedSignals(false);

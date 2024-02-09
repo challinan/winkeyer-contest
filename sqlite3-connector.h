@@ -30,7 +30,7 @@ public:
     // bool syncContestData_write();
     bool syncContestData_read();
 
-    bool syncGeneric_write(QMap<int, QString> pMapKeys);
+    bool syncGeneric_write();
 
     void setSerialPtr(SerialComms *p);
     // QList<QString> get_station_data_table_keys();
@@ -50,9 +50,9 @@ public:
     void setInitStatus(bool status);
 
 private:
-    bool createStationTable();
-    bool createSysconfigTable();
-    bool createContestTable();
+
+    bool createDbTable(QMap<int, QString>, QString tablename);
+
     int  getRowCount(QString table);
     bool dropStationTable();
     void enumerate_available_serial_ports();
@@ -67,6 +67,9 @@ private:
     QSqlDatabase db;
     QString dbpath;
     SerialComms *serial_comms_p;
+
+    // Define the database tables - the one source of truth
+    const QList<QString> database_tables {"station_data", "sysconfig_data", "contest_data"};
 
 public:
     QList<QSerialPortInfo> serial_port_list;
@@ -95,6 +98,15 @@ public:
         {0, "sequence"},
         {1, "section"},
         {2, "rst"}
+    };
+
+private:
+    // Keep this list in sync with the QMaps defining db fields (below)
+    QList<QMap<int, QString>> db_field_maps {db_station_fields, db_sysconfig_fields, db_contest_fields};
+    QMap<QString, QMap<int, QString>> get_mapfields_from_tablename = {
+    {"station_data", db_station_fields},
+    {"sysconfig_data", db_sysconfig_fields},
+    {"contest_data", db_contest_fields}
     };
 
 public:

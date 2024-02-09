@@ -1,5 +1,4 @@
 #include "serialcomms.h"
-// #include "networkcomms.h"
 
 SerialComms::SerialComms(QObject *parent)
     : QObject{parent}
@@ -9,10 +8,10 @@ SerialComms::SerialComms(QObject *parent)
     qDebug() << Qt::endl << "SerialComms::SerialComms() entered";
     write_buffer.clear();
 
-    // TODO - Hardcoded
-    // config_serial_str should come from database station data
-    config_serial_str = QString("cu.usbserial-D30BNKJU");
     enumerate_serial_devices();
+    // TODO - Hardcoded
+    // config_serial_str should come from database sysconfig data
+    config_serial_str = QString("cu.usbserial-D30BNKJU");
 
     sendEcho = false;
 }

@@ -45,10 +45,12 @@ private:
 
         // Store away the values from the associated tab
         // The QLineEdit objects are enumerated in the editBoxes list in the individual classes
+        qDebug() << "save_tabbed_data_to_database_template:" << tabPtr;
         QListIterator<QLineEdit *> s = tabPtr->dataEditBoxes;
         while (s.hasNext() ) {
             QLineEdit *lep_tmp = s.next();
             QString objname = lep_tmp->objectName();
+            qDebug() << "save_tabbed_data_to_database_template(): objname:" << objname;
 
             lep_tmp = tabPtr->template findChild<QLineEdit *>(objname);
             objname.remove("EditBox");
@@ -60,9 +62,8 @@ private:
         }
 
         // Save the data from the Tabbed Dialog into the local db
-        db->syncGeneric_write(*pStationKeyFields);
-        db->syncGeneric_write(*pSysconfigKeyFields);
-        db->syncGeneric_write(*pContestKeyFields);
+//        db->syncGeneric_write(*pSysconfigKeyFields);
+//        db->syncGeneric_write(*pContestKeyFields);
 };
 
 private:
