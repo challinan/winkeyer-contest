@@ -10,10 +10,26 @@
 #include <QDir>
 #include <QMessageBox>
 #include <QSerialPortInfo>
+#include "database-tables-base.h"
 #include <serialcomms.h>
 
-enum  database_state {DB_NOEXIST, DB_EMPTY, DB_HAS_STATIONTABLE, DB_HAS_MULTITABLES, DB_INVALID, DB_ERROR};
+#define WINKEYER_DB_NAME "winkeyer_db"
+
+// We want to know, sequentially: does the file exist?  Does it have tables?  Do the tables have data?
+// DB_NOEXIST means no file on disk
+// DB_NOTABLES means file has been created, but is empty (no tables)
+// DB_HAS_TABLE_DATA means there are at least one row in a table
+// DB_INVALID and DB_ERROR are states that exist in the underlying infrastructure/engine
+enum  database_state {DB_NOEXIST, DB_NOTABLES, DB_HAS_TABLE_DATA, DB_INVALID, DB_ERROR};
+
 #define HIDDEN_WORKDIR ".macrr"
+
+// Forward declarations
+class DataBaseTableBaseClass;
+class StationData;
+class SysconfigData;
+class ContestData;
+
 
 class Sqlite3_connector : public QObject
 {
@@ -23,105 +39,159 @@ public:
     Sqlite3_connector();
     ~Sqlite3_connector();
     bool initDatabase();
-    // bool syncStationData_write();
+
+    // Read tables from database file on disk, populate local table maps
     bool syncStationData_read();
-    // bool syncSysconfigData_write();
     bool syncSysconfigData_read();
-    // bool syncContestData_write();
     bool syncContestData_read();
 
-    bool syncGeneric_write();
+    template <typename T>
+    bool SyncDataTableRead_T(T *pDataTableClass);
 
+    template <typename T>
+    bool syncGeneric_write_to_database_T(T *pDbClass) {
+
+        bool rc;
+        qDebug() << "Sqlite3_connector::syncGeneric_write_to_database_T(): Entered" << pDbClass;
+
+        // SQLite command needs to look like this:
+        // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section)
+        //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
+
+        const QMap<int, QString> &pFields = pDbClass->getDbFields();
+        QString table_name = pFields.value(0);    // First item in table is the database table name
+        qDebug() << " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << table_name;
+
+        // Begin by creating a string like this: "INSERT INTO station_data ("
+        QString op = "INSERT INTO ";
+        op.append(table_name);
+        op.append(" (");
+
+        QString fields;
+
+        QMapIterator<int, QString> e(pFields);
+        if ( e.hasNext() ) e.next();  // Skip the table label (ie "station_data")
+
+        while ( e.hasNext()) {
+            e.next();
+
+            fields.append(e.value());
+            if ( e.hasNext() )
+                fields.append(", ");
+            else
+                fields.append(" ");     // Can't allow comma after last field
+        }
+
+        op.append(fields + ") ");
+        op.append("VALUES (");  // Continue building SQlite command
+
+        // Get local map - from which comes the local copy of the fields data
+        QMap<int, QString> &rMap = pDbClass->getLocalDataMap();
+        QMapIterator<int, QString> m(rMap);
+        while (m.hasNext() ) {
+            m.next();
+
+            op.append("\"" + m.value() + "\"");
+            // Note we don't add a trailing comma to the last field here
+            if ( m.hasNext() )
+                op.append(", ");
+            else
+                op.append(" ");     // Can't allow comma after last field
+        }
+
+        op.append(");");
+
+        // qDebug() wants to escape all double quotes in QSring so we do it this way
+        qDebug() << "***********>>>>>>>>>>>: " << op.toUtf8().constData();
+
+        QSqlDatabase sqlDataBase = QSqlDatabase::database("ConfigDB");
+
+        rc = sqlDataBase.open();
+        if ( rc ) {
+            qDebug() << "Sqlite3_connector::syncGeneric_write_to_database_T(): Database: connection ok, file open";
+        }
+        else {
+            QString err = sqlDataBase.lastError().text();
+            qDebug() << "Sqlite3_connector::syncGeneric_write_to_database_T(): Error: connection with database failed" << err;
+            return false;
+        }
+
+        // If QSqlQuery "op" parameter present in this call, it is executed.  See docs for QSqlQuery
+        QSqlQuery q(sqlDataBase);
+        rc = q.prepare(op);
+        if ( !rc ) {
+            QString err = q.lastError().text();
+            qDebug() << "Sqlite3_connector::syncGeneric_write_to_database_T(): q.prepare() returned" << rc << err;
+            return false;
+        }
+
+        rc = q.exec();
+        if ( !rc ) {
+            QString err = q.lastError().text();
+            qDebug() << "Sqlite3_connector::syncGeneric_write_to_database_T(): q.exec() returned" << rc << err;
+            return false;
+        }
+        return true;
+    }
+
+public:
     void setSerialPtr(SerialComms *p);
-    // QList<QString> get_station_data_table_keys();
-    // QList<QString> get_sysconfig_table_keys();
     QList<QString> get_xxx_table_keys(QMap<int, QString> map);
-    QString get_station_data_table_value_by_key(QString key);
-    QString get_sysconfig_table_value_by_key(QString key);
-    QString get_contest_table_value_by_key(QString key);
-    void set_station_data_table_value_by_key(QString key, QString value);
-    void set_sysconfig_table_value_by_key(QString key, QString value);
-    void set_contest_table_value_by_key(QString key, QString value);
+    QString get_station_data_table_value_by_key(int key);
+    QString get_sysconfig_table_value_by_key(int key);
+    QString get_contest_table_value_by_key(int key);
+
+    StationData *getStationDbClassPtr() { return pStationData; }
+    SysconfigData *getSysconfigDbClassPtr() { return pSysconfigData; }
+    ContestData *getContestDbClassPtr() { return pContestData; }
+
+    void registerTable(const QMap<int, QString> &r);
+    inline QList<QMap<int, QString>> &getTableList() {return table_list; };
+
+    void set_station_data_table_value_by_key(int key, QString value);
+    void set_sysconfig_table_value_by_key(int key, QString value);
+    void set_contest_table_value_by_key(int key, QString value);
     void dump_local_station_data();
     void dump_local_sysconfig_data();
+    void dump_local_contest_data();
     int display_message_box(QString text, bool db_init=false);
     enum database_state getDatabaseState();
-    bool dbInitSucceeded();
     void setInitStatus(bool status);
+    QString &getDatabasePath();
 
 private:
-
-    bool createDbTable(QMap<int, QString>, QString tablename);
-
     int  getRowCount(QString table);
     bool dropStationTable();
     void enumerate_available_serial_ports();
     bool database_initialized;
-    void getDatabaseFullPath();
-    bool validateDatabaseFullPath();
-    bool create_database_path();
-    bool initialization_succeeded;
+
+    // Construct the path name to our external database on local storate (hard drive, etc)
+    QString createDatabaseFullPath();
+    bool validateDatabasePath();
+    bool create_database_path(QString &rpath);
 
 private:
-    const char *db_filename = "winkeyer_db";
-    QSqlDatabase db;
+    bool initialization_succeeded;
+    StationData *pStationData;
+    SysconfigData *pSysconfigData;
+    ContestData *pContestData;
+    QList<QMap<int, QString>> table_list;
+    // QSqlDatabase sqlDataBase;
+
+    // Full path to database on local storage (hard drive, etc)
     QString dbpath;
+    const char *db_filename = WINKEYER_DB_NAME;
+
+    // Selects which serial port will be used for Winkeyer
     SerialComms *serial_comms_p;
 
     // Define the database tables - the one source of truth
-    const QList<QString> database_tables {"station_data", "sysconfig_data", "contest_data"};
+    // const QList<QString> database_tables {"station_data", "sysconfig_data", "contest_data"};
 
 public:
     QList<QSerialPortInfo> serial_port_list;
 
-    // This defines the station database table layout - the one source of truth
-    const QMap<int, QString> db_station_fields = {
-        {0, "callsign"},
-        {1, "opname"},
-        {2, "gridsquare"},
-        {3, "city"},
-        {4, "state"},
-        {5, "county"},
-        {6, "country"},
-        {7, "section"}
-    };
-
-    // This defines the system database table layout - the one source of truth
-    const QMap<int, QString> db_sysconfig_fields = {
-        {0, "serialport"},
-        {1, "audiooutput"},
-        {2, "audioinput"}
-    };
-
-    // This defines the contest database table layout - the one source of truth
-    const QMap<int, QString> db_contest_fields = {
-        {0, "sequence"},
-        {1, "section"},
-        {2, "rst"}
-    };
-
-private:
-    // Keep this list in sync with the QMaps defining db fields (below)
-    QList<QMap<int, QString>> db_field_maps {db_station_fields, db_sysconfig_fields, db_contest_fields};
-    QMap<QString, QMap<int, QString>> get_mapfields_from_tablename = {
-    {"station_data", db_station_fields},
-    {"sysconfig_data", db_sysconfig_fields},
-    {"contest_data", db_contest_fields}
-    };
-
 public:
-    const QMap<QString, QString> text_labels_for_station_data_keys = {
-        {"callsign", "Call Sign"},
-        {"opname", "Name"},
-        {"gridsquare", "Grid Square"},
-        {"city", "City"},
-        {"state", "State"},
-        {"county", "County"},
-        {"country", "Country"},
-        {"section", "Arrl Section"},
-        {"serialport", "Serial Port"}
-    };
-
     const QMap<QString, QString> text_labels_for_sysconfig_keys = {
         {"serialport", "Serial Port"},
         {"audiooutput", "Audio Output Device"},
@@ -133,12 +203,6 @@ public:
         {"section", "ARRL Section"},
         {"rst", "Signal Report (RST)"}
     };
-
-private:
-    // Temporary local copy of external database
-    QMap<QString, QString> station_data_list_local_map;
-    QMap<QString, QString> sysconfig_data_list_local_map;
-    QMap<QString, QString> contest_data_list_local_map;
 
 signals:
     void do_config_dialog();

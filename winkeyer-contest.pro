@@ -11,6 +11,8 @@ CONFIG += c++17
 QMAKE_CXXFLAGS += -O0
 
 SOURCES += \
+    database-tables-base.cpp \
+    generic-dbtable.cpp \
     main.cpp \
     mainwindow.cpp \
     serialcomms.cpp \
@@ -19,6 +21,8 @@ SOURCES += \
     tempgetters.cpp
 
 HEADERS += \
+    database-tables-base.h \
+    generic-dbtable.h \
     mainwindow.h \
     serialcomms.h \
     sqlite3-connector.h \

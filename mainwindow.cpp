@@ -37,7 +37,7 @@ bool MainWindow::initSucceeded() {
 bool MainWindow::initialize_mainwindow() {
 
 #ifdef DBCONFIG_DEBUG
-    // For debug only - delete when done
+    // For debug only - delete db file for debug purposes
     QString dbFile = "/Users/chris/.macrr/winkeyer_db";
     QFile file (dbFile);
     file.remove();
@@ -46,19 +46,18 @@ bool MainWindow::initialize_mainwindow() {
 
     // Initialize and sync internal and external station database
     db = new Sqlite3_connector;
+
     c_invoke_config_dialog =
         connect(db, &Sqlite3_connector::do_config_dialog, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
     qDebug() << "MainWindow::initialize_mainwindow(): Called connect: c_invoke_config_dialog = " << c_invoke_config_dialog;
 
+
     if ( !db->initDatabase() ) {
-        qDebug() << "MainWindow::initialize_mainwindow(): database init failed in Sqlite3_connector:: constructor";
+        qDebug() << "MainWindow::initialize_mainwindow(): database init failed in Sqlite3_connector::initDatabase";
         db->setInitStatus(false);
         return false;
-    }
-
-    if ( !db->dbInitSucceeded() ) {
-        initialization_succeeded = false;
-        QCoreApplication::exit(2);
+    } else {
+        db->setInitStatus(true);
     }
 
 // Initialize serial port object
