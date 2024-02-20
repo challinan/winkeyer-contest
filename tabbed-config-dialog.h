@@ -31,7 +31,6 @@ public:
     ~TopLevelTabContainerDialog();
 
     void connectStationTabTextChangedSignals(bool doConnect=true);
-    template <typename T>void setFieldText(T *tabPtr, int key, QString t);
 
     StationDataTab *getStationDataTabPtr() { return pStationDataTab; }
 
@@ -63,9 +62,9 @@ private:
 
 private:
     // TODO: Consolidate these into a single generic routine
-    template<typename T>
 
     // Read local database map from DataClass objects into tabbed dialog
+    template<typename T>
     bool get_local_data_into_dialog_T(T *pDataClassPtr);
 
 private:

@@ -122,6 +122,8 @@ int SerialComms::write_serial_data() {
     QString str = QString::number(cc);
 
     qDebug() << "SerialComms::write_serial_data(): size = " << write_buffer.size() << "buffer contains: " << str;
+    if ( active_serial_port_p == nullptr )
+        return 0;
     rc = active_serial_port_p->write(write_buffer);
     display_all_bytes(write_buffer);
     qDebug() << "SerialComms::write_serial_data(): wrote " << rc << "bytes";
@@ -193,7 +195,7 @@ void SerialComms::clear_serial_port_inbuffer() {
 
 void SerialComms::add_byte(char c) {
     qDebug() << "SerialComms::add_byte(): " << c;
-    write_buffer.insert(1, c);
+        write_buffer.insert(1, c);
 }
 
 void SerialComms::display_all_bytes(QByteArray &r) {

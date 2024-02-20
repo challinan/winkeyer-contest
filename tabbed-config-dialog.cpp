@@ -44,16 +44,36 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     // Set the dialog's title
     setWindowTitle("Configuration Dialog");
 
+    // {"station_data", "sysconfig_data", "contest_data"}
+    // Get a simple list of QStrings containing our table names
+    QList<QString> items = db->GetTableNameList();
+
     // If data is available, populate it here
-    database_state db_state = db->getDatabaseState();
+    for (const QString &item : items ) {
+        database_state db_state = db->getDatabaseState(item);
+        if ( db_state != DB_NOEXIST &&  db_state != DB_NOTABLES ) {
+            qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Reading database data into tabs";
+            // TODO: This is ugly.  Fix it.
+            if ( item == "station_data" )
+                get_local_data_into_dialog_T(pStationDataClassPtr);
+            if ( item == "sysconfig_data" )
+                get_local_data_into_dialog_T(pSysconfigDataClassPtr);
+            if ( item == "contest_data" )
+                get_local_data_into_dialog_T(pContestDataClassPtr);
+        } else {
+            qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Skipping database read into tabs";
+        }
+
+    }
+#if 0
     if ( db_state != DB_NOEXIST &&  db_state != DB_NOTABLES ) {
-        qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Reading database data into tabs";
         get_local_data_into_dialog_T(pStationDataClassPtr);
         get_local_data_into_dialog_T(pSysconfigDataClassPtr);
         get_local_data_into_dialog_T(pContestDataClassPtr);
     } else {
         qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Skipping database read into tabs";
     }
+#endif
 
     // Connect potential signals here
     connectStationTabTextChangedSignals();
@@ -80,7 +100,7 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
 
     while ( e.hasNext() ) {
         e.next();
-        //  {"callsign", "opname", "gridsquare", "city", "state", "county", "country", "section"}
+        //  For example: {"callsign", "opname", "gridsquare", "city", "state", "county", "country", "section"}
 
         QLineEdit *p;
         QString childName = e.value();    // Might be "callsign", or "opname", etc
@@ -100,6 +120,8 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
 
 void TopLevelTabContainerDialog::connectStationTabTextChangedSignals(bool doConnect) {
 
+    qDebug() << "TopLevelTabContainerDialog::connectStationTabTextChangedSignals: Entered" << doConnect;
+
 #if 0
     // Connect signals from all the QLineEdit items that indicate
     //    data changed so we know to save the data
@@ -114,12 +136,12 @@ void TopLevelTabContainerDialog::connectStationTabTextChangedSignals(bool doConn
         if ( doConnect ) {
             if ( connect(pLineEdit, &QLineEdit::textChanged, this,
                         &TopLevelTabContainerDialog::station_data_changed) )
-                qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Connection valid:" << findKey;
+                qDebug() << "TopLevelTabContainerDialog::connectStationTabTextChangedSignals(): Connection valid:" << findKey;
         }
         else {
             if ( disconnect(pLineEdit, &QLineEdit::textChanged, this,
                         &TopLevelTabContainerDialog::station_data_changed) )
-                qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Connection valid:" << findKey;
+                qDebug() << "TopLevelTabContainerDialog::connectStationTabTextChangedSignals(): Connection valid:" << findKey;
         }
     }
 #endif
@@ -155,26 +177,6 @@ void TopLevelTabContainerDialog::user_pressed_cancel() {
     QDialog::reject();
 }
 
-// Sets a value into each EditBox in the tabbed dialog
-template <typename T>
-void TopLevelTabContainerDialog::setFieldText(T *tabPtr, int key, QString value) {
-
-    qDebug() << "TopLevelTabContainerDialog::setFieldText(): Entered: key" << key << "value" << value;
-#if 0
-    QList<QMap<int, QString>> &table_list = db->getTableList();
-
-    QLineEdit *p;
-    T *pTab = tabPtr;
-    // QString childName = key;    // Might be "callsign", or "opname"
-    childName.append("EditBox");
-    qDebug() << "TopLevelTabContainerDialog::setFieldText(): childName =" << childName;  // will be "callsignEditBox", etc.
-
-    p = pTab->template findChild<sQLineEdit *>(childName);
-    p->setText(value);
-    db->set_station_data_table_value_by_key(key, p->text());
-#endif
-}
-
 void TopLevelTabContainerDialog::station_data_changed() {
     qDebug() << "TopLevelTabContainerDialog::station_data_changed(): **********>>> Entered";
 }
@@ -202,7 +204,7 @@ DataTab::~DataTab() {
     QListIterator<QLineEdit *> e(dataEditBoxes);
     while (e.hasNext() ) {
         QLineEdit *p = e.next();
-        qDebug () << "Deleteing: ******* " << p->objectName();
+        // qDebug () << "Deleting: ******* " << p->objectName();
         delete p;
         // delete e.next();
     }
@@ -259,7 +261,6 @@ void StationDataTab::set_xxx_table_value_by_key(int key, QString &value) {
 }
 
 
-// TODO: Combine this code with other tab destructors - make body static in top level tab?
 StationDataTab::~StationDataTab() {
     // Delete code in base class
 }

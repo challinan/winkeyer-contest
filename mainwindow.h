@@ -64,7 +64,6 @@ private slots:
     void waitForVisible();
 
 signals:
-    void kickoff_main_init_signal(void);
     void waitVisibleSignal();
 };
 

@@ -9,9 +9,9 @@ void MainWindow::waitForVisible() {
     while ( isVisible() == false ) {
         count++;
     }
-    qDebug() << "MainWindow::waitForVisible(void): count =" << count;
+    // qDebug() << "MainWindow::waitForVisible(void): count =" << count;
     if ( !initialize_mainwindow() ) {
-        qDebug() << "MainWindow::waitForVisible(): Exiting app";
+        qDebug() << "MainWindow::waitForVisible(): Exiting app:" << count;
         QCoreApplication::exit(-3);
     }
 }
@@ -48,17 +48,11 @@ bool MainWindow::initialize_mainwindow() {
     db = new Sqlite3_connector;
 
     c_invoke_config_dialog =
-        connect(db, &Sqlite3_connector::do_config_dialog, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
+    connect(db, &Sqlite3_connector::do_config_dialog, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
+
     qDebug() << "MainWindow::initialize_mainwindow(): Called connect: c_invoke_config_dialog = " << c_invoke_config_dialog;
 
-
-    if ( !db->initDatabase() ) {
-        qDebug() << "MainWindow::initialize_mainwindow(): database init failed in Sqlite3_connector::initDatabase";
-        db->setInitStatus(false);
-        return false;
-    } else {
-        db->setInitStatus(true);
-    }
+    db->initContinue();
 
 // Initialize serial port object
 #ifndef SKIP_SERIAL_PORT_INIT
