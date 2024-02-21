@@ -107,10 +107,11 @@ bool Sqlite3_connector::create_database_path(QString &rpath) {
     // Build a simple list of QStrings containing our table names
     QList<QString> items;
 
-    QList<QMap<int, QString>> &table_list = getTableList();
+    QList<QMap<int, dbfields_values_t>> &table_list = getTableList();
     QListIterator m(table_list);
     while ( m.hasNext() ) {
-        QString st = m.next().value(0);
+        // Isolate the fieldname - first entry in each database table
+        QString st = m.next().value(0).fieldname;
         items.append(st);
         qDebug() << "Table value = " << st;
     }
@@ -169,8 +170,8 @@ bool Sqlite3_connector::syncStationData_read() {
 
     bool rc = false;
 
-    const QMap<int, QString> &pDbFields = pStationData->getDbFields();
-    QMapIterator<int, QString> i(pDbFields);
+    const QMap<int, dbfields_values_t> &pDbFields = pStationData->getDbFields();
+    QMapIterator<int, dbfields_values> i(pDbFields);
 
 #ifdef FETCH_LAST
     // Fetch the last row from the station table
@@ -227,7 +228,7 @@ bool Sqlite3_connector::syncStationData_read() {
     while ( q.first() ) {
         while (i.hasNext() ) {
             i.next();
-            QString st = i.value();
+            QString st = i.value().fieldname;
             // Populate our local copy of station data
             qDebug() << "Sqlite3_connector::syncStationData_read(): st:" << st << "value:" << q.value(st).toString();
             rMap.insert(index, q.value(st).toString());
@@ -252,8 +253,8 @@ bool Sqlite3_connector::syncGeneric_write_to_database_T(T *pDbClass) {
     // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section)
     //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
 
-    const QMap<int, QString> &pFields = pDbClass->getDbFields();
-    QString table_name = pFields.value(0);    // First item in table is the database table name
+    const QMap<int, dbfields_values_t> &pFields = pDbClass->getDbFields();
+    QString table_name = pFields.value(0).fieldname;    // First item in table is the database table name
     qDebug() << " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << table_name;
 
     // Begin by creating a string like this: "INSERT INTO station_data ("
@@ -263,13 +264,13 @@ bool Sqlite3_connector::syncGeneric_write_to_database_T(T *pDbClass) {
 
     QString fields;
 
-    QMapIterator<int, QString> e(pFields);
+    QMapIterator<int, dbfields_values_t> e(pFields);
     if ( e.hasNext() ) e.next();  // Skip the table label (ie "station_data")
 
     while ( e.hasNext()) {
         e.next();
 
-        fields.append(e.value());
+        fields.append(e.value().fieldname);
         if ( e.hasNext() )
             fields.append(", ");
         else
@@ -338,10 +339,11 @@ bool Sqlite3_connector::SyncDataTableRead_T(T *pDataTableClass) {
 
     bool rc = false;
 
-    const QMap<int, QString> &pDbFields = pDataTableClass->getDbFields();
-    QMapIterator<int, QString> dbFieldsIter(pDbFields);
+    const QMap<int, dbfields_values_t> &pDbFields = pDataTableClass->getDbFields();
+    QMapIterator<int, dbfields_values_t> dbFieldsIter(pDbFields);
 
-    QString tablename = pDbFields.value(0);
+    // First entry of each database table is the table's name
+    QString tablename = pDbFields.value(0).fieldname;
 
 #ifdef FETCH_LAST
     // Fetch the last row from the station table
@@ -406,7 +408,7 @@ bool Sqlite3_connector::SyncDataTableRead_T(T *pDataTableClass) {
     while ( q.next() ) {
         while (dbFieldsIter.hasNext() ) {
             dbFieldsIter.next();
-            QString db_table_fieldname = dbFieldsIter.value();
+            QString db_table_fieldname = dbFieldsIter.value().fieldname;
             // Populate our local copy of station data
             // qDebug() << "Sqlite3_connector::SyncDataTableRead_T(): db_table_fieldname:" << db_table_fieldname << "value:"
             //          << q.value(db_table_fieldname).toString();
@@ -798,6 +800,15 @@ void Sqlite3_connector::setSerialPtr(SerialComms *p) {
     serial_comms_p = p;
 }
 
-void Sqlite3_connector::registerTable(const QMap<int, QString> &r) {
+// Force the compiler to instantiate every instance of our templated function
+template void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, StationData *p);
+template void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, SysconfigData *p);
+template void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, ContestData *p);
+
+template <typename T>
+void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, T *p) {
+    if ( typeid(p) == typeid(StationData) ) {
+
+    }
     table_list.append(r);
 }

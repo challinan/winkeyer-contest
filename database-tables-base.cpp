@@ -13,11 +13,6 @@ DataBaseTableBaseClass::DataBaseTableBaseClass() {
 DataBaseTableBaseClass::~DataBaseTableBaseClass() {
 }
 
-void DataBaseTableBaseClass::createSingleDbTable() {
-    qDebug() << "DataBaseTableBaseClass::createSingleDbTable(): ************ SHOULD NEVER BE CALLED";
-    Q_ASSERT(false);
-}
-
 bool DataBaseTableBaseClass::createDbTable() {
 
     // CREATE command needs to look like this:
@@ -26,13 +21,12 @@ bool DataBaseTableBaseClass::createDbTable() {
     bool rc = false;
 
     // For each database table class, create the tables in the database (file) itself
-
-    QMapIterator<int, QString> c(getDbFields());
+    QMapIterator<int, dbfields_values_t> c(getDbFields());
     QString tablename;
     if ( c.hasNext() ) {
         // First element of each  databaase table is the table name in the db file
         c.next();   // Move to next element in Map
-        tablename = c.value();
+        tablename = c.value().fieldname;
     }
     else {
         qDebug() << "DataBaseTableBaseClass::createDbTable(): Unexpected end of database table";
@@ -44,7 +38,8 @@ bool DataBaseTableBaseClass::createDbTable() {
     QString cmd = "CREATE TABLE " + tablename + " (";
     while ( c.hasNext() ) {
         c.next();
-        cmd.append(c.value());
+        // First entry in each table is the tablename
+        cmd.append(c.value().fieldname);
         cmd.append(" TEXT");
         if ( c.hasNext() )
             cmd.append(", ");
@@ -108,7 +103,7 @@ StationData::StationData(Sqlite3_connector *p)
 
 {
     db = p;
-    db->registerTable(database_fields);
+    db->registerTable(new_db_fields, this);
 
     database_state db_state = db->getDatabaseState("station_data");
     qDebug() << "StationData::StationData(): DB STATE:" << db_state;
@@ -134,21 +129,12 @@ StationData::StationData(Sqlite3_connector *p)
 #endif
 }
 
-const QMap<int, QString> &StationData::getDbFields() {
-    return database_fields;
+const QMap<int, dbfields_values_t> &StationData::getDbFields() {
+    return new_db_fields;
 }
 
 StationData::~StationData() {
 
-}
-
-void StationData::createSingleDbTable() {
-
-}
-
-const QMap<QString, QString> &StationData::getTextLabelFields() {
-    qDebug() << "StationData::getTextLabelFields(): Entered";
-    return text_labels;
 }
 
 // ****************** class SysconfigData ********************* //
@@ -156,7 +142,7 @@ SysconfigData::SysconfigData(Sqlite3_connector *p)
 //     : public DataBaseTableBaseClass
 {
     db = p;
-    db->registerTable(database_fields);
+    db->registerTable(new_db_fields, this);
 
     database_state db_state = db->getDatabaseState("sysconfig_data");
     qDebug() << "SysconfigData::SysconfigData(): DB STATE:" << db_state;
@@ -172,21 +158,12 @@ SysconfigData::SysconfigData(Sqlite3_connector *p)
     }
 }
 
-const QMap<int, QString> &SysconfigData::getDbFields() {
+const QMap<int, dbfields_values_t> &SysconfigData::getDbFields() {
     qDebug() << "SysconfigData::getDbFields(): Entered";
-    return database_fields;
-}
-
-const QMap<QString, QString> &SysconfigData::getTextLabelFields() {
-    qDebug() << "SysconfigData::getTextLabelFields(): Entered";
-    return text_labels;
+    return new_db_fields;
 }
 
 SysconfigData::~SysconfigData() {
-
-}
-
-void SysconfigData::createSingleDbTable() {
 
 }
 
@@ -196,7 +173,7 @@ ContestData::ContestData(Sqlite3_connector *p)
 //    : public DataBaseTableBaseClass
 {
     db = p;
-    db->registerTable(database_fields);
+    db->registerTable(new_db_fields, this);
 
     database_state db_state = db->getDatabaseState("contest_data");
     qDebug() << "ContestData::ContestData(): DB STATE:" << db_state;
@@ -211,20 +188,11 @@ ContestData::ContestData(Sqlite3_connector *p)
     }
 }
 
-const QMap<int, QString> &ContestData::getDbFields() {
+const QMap<int, dbfields_values_t> &ContestData::getDbFields() {
     qDebug() << "ContestData::getDbFields(): Entered";
-    return database_fields;
-}
-
-const QMap<QString, QString> &ContestData::getTextLabelFields() {
-    qDebug() << "ContestData::getTextLabelFields(): Entered";
-    return text_labels;
+    return new_db_fields;
 }
 
 ContestData::~ContestData() {
-
-}
-
-void ContestData::createSingleDbTable() {
 
 }

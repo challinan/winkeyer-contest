@@ -12,7 +12,6 @@ QMAKE_CXXFLAGS += -O0
 
 SOURCES += \
     database-tables-base.cpp \
-    generic-dbtable.cpp \
     main.cpp \
     mainwindow.cpp \
     serialcomms.cpp \
@@ -22,14 +21,14 @@ SOURCES += \
 
 HEADERS += \
     database-tables-base.h \
-    generic-dbtable.h \
     mainwindow.h \
     serialcomms.h \
     sqlite3-connector.h \
     tabbed-config-dialog.h
 
 FORMS += \
-    mainwindow.ui
+    mainwindow.ui \
+    station_data.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

@@ -66,8 +66,10 @@ public:
     SysconfigData *getSysconfigDbClassPtr() { return pSysconfigData; }
     ContestData *getContestDbClassPtr() { return pContestData; }
 
-    void registerTable(const QMap<int, dbfields_values_t> &r);
-    inline QList<QMap<int, QString>> &getTableList() {return table_list; };
+    // void registerTable(const QMap<int, QString> &r);
+    template <typename T>
+    void registerTable(const  QMap<int, dbfields_values_t> &r, T *p);
+    inline QList<QMap<int, dbfields_values_t>> &getTableList() {return table_list; };
     QList<QString> GetTableNameList();
 
     void set_station_data_table_value_by_key(int key, QString value);
@@ -94,7 +96,7 @@ private:
     StationData *pStationData;
     SysconfigData *pSysconfigData;
     ContestData *pContestData;
-    QList<QMap<int, QString>> table_list;
+    QList<QMap<int, dbfields_values_t>> table_list;
 
     // Full path to database on local storage (hard drive, etc)
     QString dbpath;

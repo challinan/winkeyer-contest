@@ -46,6 +46,7 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
 
     // {"station_data", "sysconfig_data", "contest_data"}
     // Get a simple list of QStrings containing our table names
+    // TODO: Check if this is valid.  Doesn't "Register" save a table list?
     QList<QString> items = db->GetTableNameList();
 
     // If data is available, populate it here
@@ -84,13 +85,13 @@ template<typename T>
 bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) {
 
     // Get pointer to StationData db fields
-    const QMap<int, QString> &db_fields = pDataClassPtr->getDbFields();
+    const QMap<int, dbfields_values_t> &db_fields = pDataClassPtr->getDbFields();
     QMap<int, QString> &pMap = pDataClassPtr->getLocalDataMap();
 
     // For debug only
     // db->dump_local_station_data();
 
-    QMapIterator<int, QString> e(db_fields);
+    QMapIterator<int, dbfields_values_t> e(db_fields);
     if ( e.hasNext() ) {
         e.next();   // Skip over the table name
     } else {
@@ -103,7 +104,7 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
         //  For example: {"callsign", "opname", "gridsquare", "city", "state", "county", "country", "section"}
 
         QLineEdit *p;
-        QString childName = e.value();    // Might be "callsign", or "opname", etc
+        QString childName = e.value().fieldname;    // Might be "callsign", or "opname", etc
         childName.append("EditBox");
         qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): childName =" << childName;  // will be "callsignEditBox", etc.
 
@@ -223,13 +224,12 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
     StationData *pStationDataClassPtr = db->getStationDbClassPtr();
 
     // Get pointer to StationData db fields
-    QMap<int, QString> db_fields = pStationDataClassPtr->getDbFields();
-    QMap<QString, QString> text_label_fields = pStationDataClassPtr->getTextLabelFields();
+    QMap<int, dbfields_values_t> db_fields = pStationDataClassPtr->getDbFields();
 
     formLayout = new QFormLayout(this);
 
     // {"callsign", "opname", "gridsquare", "city"}, "state", "county", "country", "section", "serialport"}
-    QMapIterator<int, QString> e(db_fields);
+    QMapIterator<int, dbfields_values_t> e(db_fields);
 
     // First entry is the tablename
     if (e.hasNext() )
@@ -237,7 +237,7 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
 
     while ( e.hasNext() ) {
         e.next();
-        QString field_name = e.value();
+        QString field_name = e.value().fieldname;
 
         // Create an appropriate QLineEdit, put it in the List, give it an objname, and add it to layout
         QLineEdit *qle = new QLineEdit;
@@ -249,7 +249,7 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
         qDebug() << "StationDataTab::StationDataTab(): Adding editBox to station data tab" << qle << qle->objectName();
 
 
-        QString editBoxLabel = text_label_fields.value(field_name);
+        QString editBoxLabel = e.value().field_label;
         formLayout->addRow(editBoxLabel, qle);
         // qDebug() << "StationDataTab::StationDataTab(): EditBox Object Name:" << objname << "key =" << key << "editBoxLabel = " << editBoxLabel;
     }
@@ -273,14 +273,15 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
     ContestData *pContestDataClassPtr = db->getContestDbClassPtr();
 
     // Get pointer to StationData db fields
-    QMap<int, QString> db_fields = pContestDataClassPtr->getDbFields();
-    QMap<QString, QString> text_label_fields = pContestDataClassPtr->getTextLabelFields();
+    QMap<int, dbfields_values_t> db_fields = pContestDataClassPtr->getDbFields();
+
+    // TOOO: Get these from the new table
 
     formLayout = new QFormLayout(this);
 
     // {"sequence", "section", "rst"}
 
-    QMapIterator<int, QString> e(db_fields);
+    QMapIterator<int, dbfields_values_t> e(db_fields);
     // First entry is the tablename
     if (e.hasNext() ) {
         // Skip over table name - we don't need it here
@@ -288,7 +289,7 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
     }
 
     while (e.hasNext() ) {
-        QString key = e.next().value();
+        QString key = e.next().value().fieldname;
 
         // Create an appropriate QLineEdit, put it in the List, give it an objname, and add it to layout
         QLineEdit *qle = new QLineEdit;
@@ -297,7 +298,7 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
         objname.append("EditBox");
         qle->setObjectName(objname);
 
-        QString editBoxLabel = text_label_fields.value(key);
+        QString editBoxLabel = e.value().field_label;
         formLayout->addRow(editBoxLabel, qle);
         // qDebug() << "ContestTab::ContestTab(): EditBox Object Name:" << objname << "key =" << key << "editBoxLabel = " << editBoxLabel;
     }
@@ -320,13 +321,12 @@ SystemConfigTab::SystemConfigTab(Sqlite3_connector *p, QWidget *parent)
     SysconfigData *pSysconfigDataClassPtr = db->getSysconfigDbClassPtr();
 
     // Get pointer to StationData db fields
-    QMap<int, QString> db_fields = pSysconfigDataClassPtr->getDbFields();
-    QMap<QString, QString> text_label_fields = pSysconfigDataClassPtr->getTextLabelFields();
+    QMap<int, dbfields_values_t> db_fields = pSysconfigDataClassPtr->getDbFields();
 
     formLayout = new QFormLayout(this);
 
     // {"serialport", "audioinport", audiooutport"}
-    QMapIterator<int, QString> e(db_fields);
+    QMapIterator<int, dbfields_values_t> e(db_fields);
 
     // First entry is the tablename
     if (e.hasNext() ) {
@@ -336,7 +336,7 @@ SystemConfigTab::SystemConfigTab(Sqlite3_connector *p, QWidget *parent)
 
     while ( e.hasNext() ) {
         e.next();
-        QString key = e.value();
+        QString key = e.value().fieldname;
 
         // Create an appropriate QLineEdit, put it in the List, give it an objname, and add it to layout
         QLineEdit *qle = new QLineEdit;
@@ -346,7 +346,7 @@ SystemConfigTab::SystemConfigTab(Sqlite3_connector *p, QWidget *parent)
         objname.append("EditBox");
         qle->setObjectName(objname);
 
-        QString editBoxLabel = text_label_fields.value(key);
+        QString editBoxLabel = e.value().field_label;
         formLayout->addRow(editBoxLabel, qle);
         // qDebug() << "SystemConfigTab::SystemConfigTab(): EditBox Object Name:" << objname << "key =" << key << "editBoxLabel = " << editBoxLabel;
     }
