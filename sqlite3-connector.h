@@ -39,11 +39,7 @@ public:
     Sqlite3_connector();
     ~Sqlite3_connector();
 
-    // Read tables from database file on disk, populate local table maps
-    bool syncStationData_read();
-    bool syncSysconfigData_read();
-    bool syncContestData_read();
-
+    // Read the database, and put the data into the local map (our local mirror of what's in the table on disk)
     template <typename T>
     bool SyncDataTableRead_T(T *pDataTableClass);
 
@@ -57,9 +53,6 @@ public:
 public:
     void setSerialPtr(SerialComms *p);
     QList<QString> get_xxx_table_keys(QMap<int, QString> map);
-    QString get_station_data_table_value_by_key(int key);
-    QString get_sysconfig_table_value_by_key(int key);
-    QString get_contest_table_value_by_key(int key);
     bool checkIfDatabaseTablesAreEmpty();
 
     StationData *getStationDbClassPtr() { return pStationData; }
@@ -72,9 +65,6 @@ public:
     inline QList<QMap<int, dbfields_values_t>> &getTableList() {return table_list; };
     QList<QString> GetTableNameList();
 
-    void set_station_data_table_value_by_key(int key, QString value);
-    void set_sysconfig_table_value_by_key(int key, QString value);
-    void set_contest_table_value_by_key(int key, QString value);
     void dump_local_station_data();
     void dump_local_sysconfig_data();
     void dump_local_contest_data();
@@ -85,7 +75,6 @@ public:
 private:
     int  getRowCount(QString table);
     bool dropStationTable();
-    void enumerate_available_serial_ports();
 
     // Construct the path name to our external database on local storate (hard drive, etc)
     QString createDatabaseFullPath();
@@ -102,24 +91,8 @@ private:
     QString dbpath;
     const char *db_filename = WINKEYER_DB_NAME;
 
-    // Selects which serial port will be used for Winkeyer
+    // This is a pointer to our serialComms object.  Do we need it here?
     SerialComms *serial_comms_p;
-
-public:
-    QList<QSerialPortInfo> serial_port_list;
-
-public:
-    const QMap<QString, QString> text_labels_for_sysconfig_keys = {
-        {"serialport", "Serial Port"},
-        {"audiooutput", "Audio Output Device"},
-        {"audioinput", "Audio Input Device"}
-    };
-
-    const QMap<QString, QString> text_labels_for_contest_keys = {
-        {"sequence", "Sequence Number"},
-        {"section", "ARRL Section"},
-        {"rst", "Signal Report (RST)"}
-    };
 
 signals:
     void do_config_dialog();

@@ -8,7 +8,10 @@ SerialComms::SerialComms(QObject *parent)
     qDebug() << Qt::endl << "SerialComms::SerialComms() entered";
     write_buffer.clear();
 
-    enumerate_serial_devices();
+    // List all serial devices that the OS knows about and store them
+    serial_port_list = enumerateSerialDevices();
+    Q_ASSERT(false);
+
     // TODO - Hardcoded
     // config_serial_str should come from database sysconfig data
     config_serial_str = QString("cu.usbserial-D30BNKJU");
@@ -33,20 +36,23 @@ void SerialComms::setNetcommObjPointer(NetworkComms *pNetworkObj) {
     network_comm_obj_p = pNetworkObj;
 }
 
-void SerialComms::enumerate_serial_devices() {
+QList<QSerialPortInfo> SerialComms::enumerateSerialDevices() {
 
-    qDebug() << "SerialComms::enumerate_serial_devices() entered";
-    QList<QSerialPortInfo>::iterator i;
-    for (i = port_info_list.begin(); i != port_info_list.end(); i++) {
-        QString s_tmp = i->portName();
-        if ( s_tmp.startsWith("cu.usbserial") ) {
-            emit on_serial_port_detected(s_tmp);
-            qDebug() << "SerialComms::enumerate_serial_devices() **** detected" << i->portName();
-            if ( s_tmp.compare(config_serial_str) == 0 ) {        // This is our configured value
-                selected_serial_port_from_config = *i;
-            }
+    qDebug() << "SerialComms::enumerateSerialDevices() entered";
+
+    // This static function lists all available serial ports that the OS reports
+    QList<QSerialPortInfo> tmp_list = QSerialPortInfo::availablePorts();
+
+    QListIterator m(tmp_list);
+    while (m.hasNext()) {
+        QString s = m.next().portName();
+        qDebug() << "SerialComms::enumerateSerialDevices(): found" << s;
+        if ( s.startsWith("cu.usbserial") ) {
+            emit on_serial_port_detected(s);
+            qDebug() << "SerialComms::enumerateSerialDevices() **** detected" << s;
         }
     }
+    return tmp_list;
 }
 
 int SerialComms::openSerialPort() {

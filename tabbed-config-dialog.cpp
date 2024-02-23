@@ -86,7 +86,7 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
 
     // Get pointer to StationData db fields
     const QMap<int, dbfields_values_t> &db_fields = pDataClassPtr->getDbFields();
-    QMap<int, QString> &pMap = pDataClassPtr->getLocalDataMap();
+    QMap<QString, QString> &pMap = pDataClassPtr->getLocalDataMap();
 
     // For debug only
     // db->dump_local_station_data();
@@ -113,8 +113,7 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
             qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): child" << childName << "not found";
             return false;
         }
-        // TODO: This is as ugly as it gets.  What I really need is a 3-ple table {key, fieldname, value}
-        p->setText(pMap.value(e.key()-1));
+        p->setText(pMap.value(e.value().fieldname));
     }
     return true;
 }
@@ -155,11 +154,11 @@ void TopLevelTabContainerDialog::user_pressed_save() {
     pSysconfigDataClassPtr = db->getSysconfigDbClassPtr();
     pContestDataClassPtr = db->getContestDbClassPtr();
 
-    save_tabbed_data_to_local_database_map_T<StationDataTab>(pStationDataTab);
+    saveTabbedDataToLocalMap<StationDataTab>(pStationDataTab);
     db->dump_local_station_data();
-    save_tabbed_data_to_local_database_map_T<SystemConfigTab>(pSysconfigTab);
+    saveTabbedDataToLocalMap<SystemConfigTab>(pSysconfigTab);
     db->dump_local_sysconfig_data();
-    save_tabbed_data_to_local_database_map_T<ContestTab>(pContestTab);
+    saveTabbedDataToLocalMap<ContestTab>(pContestTab);
     db->dump_local_contest_data();
 
     db->syncGeneric_write_to_database_T(pStationDataClassPtr);
@@ -184,6 +183,7 @@ void TopLevelTabContainerDialog::station_data_changed() {
 
 TopLevelTabContainerDialog::~TopLevelTabContainerDialog() {
 
+    qDebug() << "TopLevelTabContainerDialog::~TopLevelTabContainerDialog(): Destructor entered";
     delete pMainLayout;
     delete buttonBox;
     delete pSysconfigTab;
@@ -210,8 +210,6 @@ DataTab::~DataTab() {
         // delete e.next();
     }
     delete formLayout;
-
-
 }
 
 
@@ -256,10 +254,11 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
     setLayout(formLayout);
 }
 
-void StationDataTab::set_xxx_table_value_by_key(int key, QString &value) {
-    db->set_station_data_table_value_by_key(key, value);
+void StationDataTab::setLocalMapValueByKey(QString key, QString value) {
+    // This works
+    QMap<QString, QString> &p = db->getStationDbClassPtr()->getLocalDataMap();
+    p.insert(key, value);
 }
-
 
 StationDataTab::~StationDataTab() {
     // Delete code in base class
@@ -305,8 +304,9 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
     setLayout(formLayout);
 }
 
-void ContestTab::set_xxx_table_value_by_key(int key, QString &value) {
-    db->set_contest_table_value_by_key(key, value);
+void ContestTab::setLocalMapValueByKey(QString key, QString value) {
+    QMap<QString, QString> p = db->getSysconfigDbClassPtr()->getLocalDataMap();
+    p.insert(key, value);
 }
 
 ContestTab::~ContestTab() {
@@ -353,8 +353,9 @@ SystemConfigTab::SystemConfigTab(Sqlite3_connector *p, QWidget *parent)
     setLayout(formLayout);
 }
 
-void SystemConfigTab::set_xxx_table_value_by_key(int key, QString &value) {
-    db->set_sysconfig_table_value_by_key(key, value);
+void SystemConfigTab::setLocalMapValueByKey(QString key, QString value) {
+    QMap<QString, QString> p = db->getContestDbClassPtr()->getLocalDataMap();
+    p.insert(key, value);
 }
 
 SystemConfigTab::~SystemConfigTab() {

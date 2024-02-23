@@ -2,8 +2,13 @@
 #include "ui_mainwindow.h"
 
 #define SKIP_SERIAL_PORT_INIT
+
 // #define DBCONFIG_DEBUG  // When enabled, erases the db file on every run
 
+// The purpose of this function is to allow the main window to become visible
+//   before anything else.  For example, if there is no database, the warning
+//   message is displayed before the main window.  Confusing and not good.
+//   Don't know if there is a better way
 void MainWindow::waitForVisible() {
     int count = 0;
     while ( isVisible() == false ) {
@@ -21,13 +26,13 @@ MainWindow::MainWindow(QWidget *parent)
 {
     initialization_succeeded = true;
     init_called_once = false;
-    qDebug() << "MainWindow::MainWindow(): Ctor Entered";
+    // qDebug() << "MainWindow::MainWindow(): Ctor Entered";
     ui->setupUi(this);
     connect(this, &MainWindow::waitVisibleSignal, this, &MainWindow::waitForVisible, Qt::QueuedConnection);
     connect(ui->configPushButton, &QPushButton::clicked, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
 
     // Entry to main event loop starts when this constructor returns
-    qDebug() << "MainWindow::MainWindow(): Ctor Exiting complete";
+    // qDebug() << "MainWindow::MainWindow(): Ctor Exiting complete";
 }
 
 bool MainWindow::initSucceeded() {
@@ -50,7 +55,7 @@ bool MainWindow::initialize_mainwindow() {
     c_invoke_config_dialog =
     connect(db, &Sqlite3_connector::do_config_dialog, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
 
-    qDebug() << "MainWindow::initialize_mainwindow(): Called connect: c_invoke_config_dialog = " << c_invoke_config_dialog;
+    qDebug() << "MainWindow::initialize_mainwindow(): Called connect(): returned =" << c_invoke_config_dialog;
 
     db->initContinue();
 
@@ -60,11 +65,9 @@ bool MainWindow::initialize_mainwindow() {
     db->setSerialPtr(serial_comms_p);
     serial_comms_p->openSerialPort();
     connect(serial_comms_p, &SerialComms::on_serial_port_detected, this, &MainWindow::serial_port_detected);
-
-    // textCursor = QTextCursor(ui->plainTextEdit->textCursor());
-    // ui->plainTextEdit->setFocusPolicy(Qt::StrongFocus);
 #endif
 
+    // TODO How, where and when do I kill this timer?
     blinkTimer = new QTimer(this);
     connect(blinkTimer, &QTimer::timeout, this, QOverload<>::of(&MainWindow::changeConfigButtonTextColor));
     blinkTimer->start(350);
@@ -82,7 +85,7 @@ void MainWindow::launchConfigDialog() {
     pTabbedDialogPtr->show();
     pTabbedDialogPtr->exec();
 
-    // Store the data here
+    // Store the data before here
     delete pTabbedDialogPtr;
 }
 

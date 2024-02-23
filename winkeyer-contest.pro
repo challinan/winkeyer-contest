@@ -16,8 +16,7 @@ SOURCES += \
     mainwindow.cpp \
     serialcomms.cpp \
     sqlite3-connector.cpp \
-    tabbed-config-dialog.cpp \
-    tempgetters.cpp
+    tabbed-config-dialog.cpp
 
 HEADERS += \
     database-tables-base.h \

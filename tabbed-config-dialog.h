@@ -32,30 +32,27 @@ public:
 
     void connectStationTabTextChangedSignals(bool doConnect=true);
 
-    StationDataTab *getStationDataTabPtr() { return pStationDataTab; }
-
 private:
     void save_tabbed_data_to_database();
 
     template <typename T>
-    void save_tabbed_data_to_local_database_map_T(T *tabPtr) { // Pointer to our config Dialog Tabs
+    void saveTabbedDataToLocalMap(T *tabPtr) { // Pointer to our config Dialog Tabs
 
         // Store away the values from the associated tab's edit boxes
         // The QLineEdit objects are enumerated in the editBoxes list in the individual classes
-        qDebug() << "save_tabbed_data_to_local_database_map_T:" << tabPtr;
-        int index = 0;
+        qDebug() << "saveTabbedDataToLocalMap:" << tabPtr;
         QListIterator<QLineEdit *> s = tabPtr->dataEditBoxes;
         while (s.hasNext() ) {
             QLineEdit *lep_tmp = s.next();
             QString objname = lep_tmp->objectName();
-            qDebug() << "save_tabbed_data_to_local_database_map_T(): objname:" << objname;
+            qDebug() << "saveTabbedDataToLocalMap(): objname:" << objname;
 
             lep_tmp = tabPtr->template findChild<QLineEdit *>(objname);
             objname.remove("EditBox");
 
             QString value = lep_tmp->text();
-            tabPtr->set_xxx_table_value_by_key(index++, value);
-            qDebug() << "TopLevelTabContainerDialog::save_tabbed_data_to_local_database_map_T(): objname, leptmp->text()"
+            tabPtr->setLocalMapValueByKey(objname, value);
+            qDebug() << "TopLevelTabContainerDialog::saveTabbedDataToLocalMap(): objname, leptmp->text()"
                      << objname << lep_tmp->text();
         }
 };
@@ -99,16 +96,15 @@ public:
     explicit DataTab(Sqlite3_connector *p, QWidget *parent = nullptr);
     ~DataTab();
 
-    // db->set_sysconfig_table_value_by_key(objname, lep_tmp->text())
-    virtual void set_xxx_table_value_by_key(int key, QString &value) = 0;
+    virtual void setLocalMapValueByKey(QString key, QString value) = 0;
 
 private:
     Sqlite3_connector *db;
     QFormLayout *formLayout;
 
 public:
-    QList<QLineEdit *> dataEditBoxes;    // These are the QLineEdit boxes in the tab
-    QMap<QString, QString> data_list_local_map;
+    // These are the QLineEdit boxes in the tab
+    QList<QLineEdit *> dataEditBoxes;
 
 signals:
     void selectionChanged();
@@ -129,7 +125,8 @@ public:
     explicit StationDataTab(Sqlite3_connector *p, QWidget *parent = nullptr);
     ~StationDataTab();
 
-    void set_xxx_table_value_by_key(int key, QString &value);
+    void setLocalMapValueByKey(QString key, QString value);
+
 };
 
 // **********************  SystemConfigTab  *************************** //
@@ -143,7 +140,8 @@ public:
     explicit SystemConfigTab(Sqlite3_connector *p, QWidget *parent = nullptr);
     ~SystemConfigTab();
 
-    void set_xxx_table_value_by_key(int key, QString &value);
+    void setLocalMapValueByKey(QString key, QString value);
+
 };
 
 // **********************  ContestTab  *************************** //
@@ -157,7 +155,8 @@ public:
     explicit ContestTab(Sqlite3_connector *p, QWidget *parent = nullptr);
     ~ContestTab();
 
-    void set_xxx_table_value_by_key(int key, QString &value);
+    void setLocalMapValueByKey(QString key, QString value);
+
 };
 
 #endif // TABBEDDIALOG_H

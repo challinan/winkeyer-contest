@@ -26,7 +26,7 @@ public:
     virtual const QMap<int, dbfields_values_t> &getDbFields() = 0;
 
     // TODO: This can be deleted
-    virtual QMap<int, QString> &getLocalDataMap() = 0;
+    virtual QMap<QString, QString> &getLocalDataMap() = 0;
 
     bool createDbTable();
 
@@ -49,7 +49,7 @@ public:
     ~StationData();
 
     const QMap<int, dbfields_values_t> &getDbFields();
-    QMap<int, QString> &getLocalDataMap() { return local_data_map; }
+    QMap<QString, QString> &getLocalDataMap() { return local_data_map; }
 
 private:
     // This defines the database table layout - the one source of truth
@@ -67,7 +67,7 @@ private:
 
 private:
     // This table holds a copy of what is on disk, and should always be sync'd to it
-    QMap<int, QString> local_data_map;
+    QMap<QString, QString> local_data_map;
 
     Sqlite3_connector *pStationData;
 
@@ -84,7 +84,7 @@ public:
     ~SysconfigData();
 
     const QMap<int, dbfields_values_t> &getDbFields();
-    QMap<int, QString> &getLocalDataMap() { return local_data_map; }
+    QMap<QString, QString> &getLocalDataMap() { return local_data_map; }
 
     // This defines the system configuration database table layout - the one source of truth
     const QMap<int, dbfields_values_t> new_db_fields {
@@ -96,7 +96,7 @@ public:
 
 private:
     // Temporary local copy of external database
-    QMap<int, QString> local_data_map;
+    QMap<QString, QString> local_data_map;
     Sqlite3_connector *pSysconfigData;
 
 };
@@ -112,7 +112,7 @@ public:
     ~ContestData();
 
     const QMap<int, dbfields_values_t> &getDbFields();
-    QMap<int, QString> &getLocalDataMap() { return local_data_map; }
+    QMap<QString, QString> &getLocalDataMap() { return local_data_map; }
 
     // This defines the system configuration database table layout - the one source of truth
     const QMap<int, dbfields_values_t> new_db_fields {
@@ -122,7 +122,7 @@ public:
     };
 
 private:
-    QMap<int, QString> local_data_map;
+    QMap<QString, QString> local_data_map;
     Sqlite3_connector *pContestData;
 
 };

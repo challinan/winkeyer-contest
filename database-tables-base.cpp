@@ -189,7 +189,6 @@ ContestData::ContestData(Sqlite3_connector *p)
 }
 
 const QMap<int, dbfields_values_t> &ContestData::getDbFields() {
-    qDebug() << "ContestData::getDbFields(): Entered";
     return new_db_fields;
 }
 
