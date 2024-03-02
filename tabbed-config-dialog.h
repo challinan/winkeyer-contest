@@ -13,6 +13,7 @@
 #include <QCheckBox>
 #include <QListWidget>
 #include <QFormLayout>
+#include <QComboBox>
 
 #include "sqlite3-connector.h"
 
@@ -52,8 +53,23 @@ private:
 
             QString value = lep_tmp->text();
             tabPtr->setLocalMapValueByKey(objname, value);
-            qDebug() << "TopLevelTabContainerDialog::saveTabbedDataToLocalMap(): objname, leptmp->text()"
+            qDebug() << "TopLevelTabContainerDialog::saveTabbedDataToLocalMap(): objname, lep_tmp->text()"
                      << objname << lep_tmp->text();
+        }
+
+        QListIterator<QComboBox *> c = tabPtr->comboBoxesList;
+        while ( c.hasNext() ) {
+            QComboBox *cb_tmp = c.next();
+            QString objname = cb_tmp->objectName();
+            qDebug() << "saveTabbedDataToLocalMap(): objname:" << objname;
+
+            cb_tmp = tabPtr->template findChild<QComboBox *>(objname);
+            objname.remove("ComboBox");
+
+            QString value = cb_tmp->currentText();
+            tabPtr->setLocalMapValueByKey(objname, value);
+            qDebug() << "TopLevelTabContainerDialog::saveTabbedDataToLocalMap(): objname, cb_tmp->text()"
+                     << objname << cb_tmp->currentText();
         }
 };
 
@@ -105,6 +121,7 @@ private:
 public:
     // These are the QLineEdit boxes in the tab
     QList<QLineEdit *> dataEditBoxes;
+    QList<QComboBox *> comboBoxesList;
 
 signals:
     void selectionChanged();

@@ -23,6 +23,8 @@ namespace Ui { class MainWindow; }
 namespace Ui { class stationDialog; }
 QT_END_NAMESPACE
 
+class TransmitWindow;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -31,8 +33,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    bool event(QEvent* ev) override;
-    QTextCursor textCursor;
+    void keyPressEvent(QKeyEvent *event) override;
     bool initialize_mainwindow();
     bool initSucceeded();
 
@@ -45,10 +46,13 @@ private:
     SerialComms *serial_comms_p;
     Sqlite3_connector *db;
     QMetaObject::Connection c_invoke_config_dialog;
+    QMetaObject::Connection c_speed_timer;
     bool initialization_succeeded;
     bool init_called_once;
     QTimer *blinkTimer;
     TopLevelTabContainerDialog *pTabbedDialogPtr;
+    QTimer *speed_spinbox_timer;
+    bool speed_timer_active;
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -57,11 +61,14 @@ public slots:
     void serial_port_detected(QString &s);
 
 private slots:
-    void on_plainTextEdit_textChanged();
+    void on_CwTx_TextEdit_textChanged();
     void on_exitPushButton_clicked();
     void changeConfigButtonTextColor();
     void launchConfigDialog();
     void waitForVisible();
+    void UpdateSpeed();
+
+    void speedSpinBox_valueChanged(int arg1);
 
 signals:
     void waitVisibleSignal();

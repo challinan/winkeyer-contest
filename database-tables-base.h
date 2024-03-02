@@ -85,6 +85,7 @@ public:
 
     const QMap<int, dbfields_values_t> &getDbFields();
     QMap<QString, QString> &getLocalDataMap() { return local_data_map; }
+    QString getConfiguredSerialPort();
 
     // This defines the system configuration database table layout - the one source of truth
     const QMap<int, dbfields_values_t> new_db_fields {

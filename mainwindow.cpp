@@ -1,8 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#define SKIP_SERIAL_PORT_INIT
-
+// #define SKIP_SERIAL_PORT_INIT
 // #define DBCONFIG_DEBUG  // When enabled, erases the db file on every run
 
 // The purpose of this function is to allow the main window to become visible
@@ -24,8 +23,13 @@ void MainWindow::waitForVisible() {
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
 {
+    // TODO: Are we using these?
     initialization_succeeded = true;
     init_called_once = false;
+    speed_timer_active = false;
+
+    serial_comms_p = nullptr;
+
     // qDebug() << "MainWindow::MainWindow(): Ctor Entered";
     ui->setupUi(this);
     connect(this, &MainWindow::waitVisibleSignal, this, &MainWindow::waitForVisible, Qt::QueuedConnection);
@@ -61,10 +65,26 @@ bool MainWindow::initialize_mainwindow() {
 
 // Initialize serial port object
 #ifndef SKIP_SERIAL_PORT_INIT
-    serial_comms_p = new SerialComms();
+    serial_comms_p = new SerialComms(this, db);
+
+    // TODO: This pointer to database object in serial comms object should not be required
     db->setSerialPtr(serial_comms_p);
-    serial_comms_p->openSerialPort();
-    connect(serial_comms_p, &SerialComms::on_serial_port_detected, this, &MainWindow::serial_port_detected);
+
+    if ( !serial_comms_p->openSerialPort() ) {
+        qDebug() << "MainWindow::initialize_mainwindow(): Open Serial Port failed";
+    } else {
+        connect(serial_comms_p, &SerialComms::on_serial_port_detected, this, &MainWindow::serial_port_detected, Qt::QueuedConnection);
+
+        // Set min/max ranges for our speed spinBox and Speed Pot
+        ui->speedSpinBox->setMinimum(SPEEDPOT_MIN);
+        ui->speedSpinBox->setMaximum(SPEEDPOT_MAX);
+        serial_comms_p->setupSpeedPotRange(SPEEDPOT_MIN, SPEEDPOT_MAX);
+
+        // Set our initial keyer speed to 22 WPM
+        ui->speedSpinBox->setValue(22);
+        serial_comms_p->setSpeed(22);
+        connect(ui->speedSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::speedSpinBox_valueChanged);
+    }
 #endif
 
     // TODO How, where and when do I kill this timer?
@@ -111,7 +131,6 @@ MainWindow::~MainWindow()
 {
     qDebug() << "MainWindow::~MainWindow(): dtor entered";
 #ifndef SKIP_SERIAL_PORT_INIT
-   serial_comms_p->close_serial_port();
    delete serial_comms_p;
    delete ui;
 #endif
@@ -125,15 +144,18 @@ void MainWindow::serial_port_detected(QString &s) {
 }
 
 
-void MainWindow::on_plainTextEdit_textChanged()
+void MainWindow::on_CwTx_TextEdit_textChanged()
 {
-    // qDebug() << "MainWindow::on_plainTextEdit_textChanged() entered" << textCursor.position();
-    QTextCursor cursor = ui->plainTextEdit->textCursor();
+    QTextCursor cursor = ui->CwTx_TextEdit->textCursor();
+    qDebug() << "MainWindow::on_CwTx_TextEdit_textChanged() entered" << cursor.position();
+
     int position = cursor.position()-1;
-    QChar character = ui->plainTextEdit->document()->characterAt(position);
+    QChar character = ui->CwTx_TextEdit->document()->characterAt(position);
     char c = character.toLatin1();
+
+    if ( serial_comms_p == nullptr ) return;    // We don't have a valid serial comms object (mostly for debugging)
+
     if ( c == 'T' ) {
-        serial_comms_p->sendEcho = true;
         serial_comms_p->doEchoTest();
         return;
     }
@@ -144,15 +166,9 @@ void MainWindow::on_plainTextEdit_textChanged()
     }
 
     // If fall through - send character
-    qDebug() << "Character at current cursor position is" << c << "Unicode:" << character.unicode();
-    std::printf("Character is %02x", c);
-    if ( c == '\r' || c == '\n' ) {
-        qDebug() << "MainWindow::on_plainTextEdit_textChanged(): Discarding CR or LF";
-        return;
-    }
     c = toupper(c);
     serial_comms_p->add_byte(c);
-    serial_comms_p->write_serial_data();
+    serial_comms_p->WriteSerialData();
 }
 
 void MainWindow::on_exitPushButton_clicked()
@@ -182,22 +198,36 @@ void MainWindow::showEvent(QShowEvent *event) {
     }
 }
 
-bool MainWindow::event(QEvent* ev) {
-
-#if 0
-    if (ev->type() == QEvent::UpdateRequest )
-        // This is a dirty hack - need to find a better way call init after mainwindow
-        //   becomes visible for the first time
-        if ( init_called_once == false ) {
-            init_called_once = true;
-            if ( !initialize_mainwindow() )
-                QCoreApplication::exit(-3);
-        }
-#endif
-
-    if ( ev->type() == QEvent::Show ) {
-        qDebug() << "MainWindow::event(): for Event Qevent::Show";
+void MainWindow::speedSpinBox_valueChanged(int arg1)
+{
+    if ( speed_timer_active == false ) {
+        qDebug() << "MainWindow::speedSpinBox_valueChanged:" << arg1;
+        speed_spinbox_timer = new QTimer(this);
+        speed_spinbox_timer->setSingleShot(true);
+        c_speed_timer = connect(speed_spinbox_timer, &QTimer::timeout, this, &MainWindow::UpdateSpeed);
+        speed_timer_active = true;
+        speed_spinbox_timer->start(750);
+    } else  {
+        speed_spinbox_timer->setInterval(750); // Bump timer
     }
+}
 
-    return QWidget::event(ev);
+void MainWindow::UpdateSpeed() {
+
+    int speed = ui->speedSpinBox->value();
+    speed_timer_active = false;
+    disconnect(c_speed_timer);
+    delete speed_spinbox_timer;
+
+    qDebug() << "MainWindow::UpdateSpeed(): Timer timedout - slot entered - speed now" << speed;
+
+    serial_comms_p->setSpeed(speed);
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event) {
+    if ( event->key() == Qt::Key_Escape) {
+        serial_comms_p->clearWinkeyerBuffer();
+        ui->CwTx_TextEdit->clear();
+    }
+    QMainWindow::keyPressEvent(event);
 }

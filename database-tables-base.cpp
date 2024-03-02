@@ -163,6 +163,10 @@ const QMap<int, dbfields_values_t> &SysconfigData::getDbFields() {
     return new_db_fields;
 }
 
+QString SysconfigData::getConfiguredSerialPort() {
+    return local_data_map.value("serialport");
+}
+
 SysconfigData::~SysconfigData() {
 
 }

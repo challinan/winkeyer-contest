@@ -1,142 +1,163 @@
+#include "sqlite3-connector.h"
 #include "serialcomms.h"
 
-SerialComms::SerialComms(QObject *parent)
+#define DISPLAY_ALL_BYTES
+#define READ_BUFFER_SIZE 8
+
+class SerialRxCommsThread;
+
+SerialComms::SerialComms(QObject *parent, Sqlite3_connector *p)
     : QObject{parent}
 {
-    // Enumerate available usb serial ports
-    port_info_list = QSerialPortInfo::availablePorts();
-    qDebug() << Qt::endl << "SerialComms::SerialComms() entered";
-    write_buffer.clear();
+    db = p;
+    winkeyer_open = false;
+    runRxThread = false;
+    active_serial_port_p = nullptr;
 
-    // List all serial devices that the OS knows about and store them
-    serial_port_list = enumerateSerialDevices();
-    Q_ASSERT(false);
+    // Set size and clear read and write buffers
+    // QString ptrStr = QString( "0x%1" ).arg( reinterpret_cast<quintptr>(read_buffer.data()),
+    //                                      QT_POINTER_SIZE * 2, 16, QChar('0') );
+    read_buffer.resize(READ_BUFFER_SIZE);
 
-    // TODO - Hardcoded
-    // config_serial_str should come from database sysconfig data
-    config_serial_str = QString("cu.usbserial-D30BNKJU");
+    // Fetch the configured serial port from the database tables
+    config_serial_port = db->getSysconfigDbClassPtr()->getConfiguredSerialPort();
 
-    sendEcho = false;
+    qDebug() << Qt::endl << "SerialComms::SerialComms() ctor: Port" << config_serial_port;
 }
 
 SerialComms::~SerialComms() {
-    close_serial_port();
+
     qDebug() << "SerialComms::~SerialComms(): Destructor entered ****";
-    active_serial_port_p->close();
-    delete active_serial_port_p;
+    close_serial_port();
+    if ( active_serial_port_p )
+        delete active_serial_port_p;
     // Disconnect signals ???
 
+    // Stop and kill our worker thread
+    runRxThread = false;
+#if 0
+    pRxThread->terminate();
+    pRxThread->wait();
+    delete pRxThread;
+#endif
 }
 
-QList<QSerialPortInfo> &SerialComms::get_pList() {
-    return port_info_list;
-}
-
-void SerialComms::setNetcommObjPointer(NetworkComms *pNetworkObj) {
-    network_comm_obj_p = pNetworkObj;
-}
-
-QList<QSerialPortInfo> SerialComms::enumerateSerialDevices() {
-
-    qDebug() << "SerialComms::enumerateSerialDevices() entered";
-
-    // This static function lists all available serial ports that the OS reports
-    QList<QSerialPortInfo> tmp_list = QSerialPortInfo::availablePorts();
-
-    QListIterator m(tmp_list);
-    while (m.hasNext()) {
-        QString s = m.next().portName();
-        qDebug() << "SerialComms::enumerateSerialDevices(): found" << s;
-        if ( s.startsWith("cu.usbserial") ) {
-            emit on_serial_port_detected(s);
-            qDebug() << "SerialComms::enumerateSerialDevices() **** detected" << s;
-        }
-    }
-    return tmp_list;
-}
-
-int SerialComms::openSerialPort() {
+bool SerialComms::openSerialPort() {
 
     // Qt Default values: No Parity, 8-Bit data, 1 Stop bit
     active_serial_port_p = new QSerialPort;
-    active_serial_port_p->setPort(selected_serial_port_from_config);
+    // active_serial_port_p->setPort(config_serial_port);
+    active_serial_port_p->setPortName(config_serial_port);
     active_serial_port_p->setBaudRate(QSerialPort::Baud1200);
-    qDebug() << "SerialComms::openSerialPort(): selected serial port is " << selected_serial_port_from_config.portName();
+    qDebug() << "SerialComms::openSerialPort(): selected serial port is " << active_serial_port_p->portName();
     bool retcode = active_serial_port_p->open(QIODeviceBase::ReadWrite);
     if ( !retcode ) {
-        qDebug() << "SerialComms::openSerialPort(): serial port open() failed with"
-                 << retcode << active_serial_port_p->errorString();
-        return -1;
+        qDebug() << "SerialComms::openSerialPort(): serial port open() failed:" << active_serial_port_p->errorString();
+        delete active_serial_port_p;
+        active_serial_port_p = nullptr;
+        return false;
     }
-    clear_serial_port_inbuffer();
-    connect(active_serial_port_p, &QIODevice::readyRead, this, &SerialComms::slot_readyRead);
+    active_serial_port_p->clear();
 
-    QThread::msleep(500);
+    connect(active_serial_port_p, &QIODevice::readyRead, this, &SerialComms::slot_readyRead, Qt::QueuedConnection);
+
     open_winkeyer();
-    return 0;
+    // setupSpeedPotRange();
+
+    return true;
 }
 
 void SerialComms::close_serial_port() {
+
     qDebug() << "SerialComms::close_serial_port(): closing serial port";
-    write_buffer.clear();
     close_winkeyer();
+
+    // Make sure all bytes have been transmitted
+    while ( active_serial_port_p->bytesToWrite() > 0 ) {
+        active_serial_port_p->waitForBytesWritten(100);
+    }
+
+    active_serial_port_p->close();
 }
 
 void SerialComms::open_winkeyer() {
+
+    // Winkeyer Wk3 Open Command: 0x00, 0x02
     qDebug() << "SerialComms::open_winkeyer(): Entered";
-    char outc = 0x0;
-    write_buffer.append(outc);
-    outc = 0x02;
-    write_buffer.append(outc);
-    display_all_bytes(write_buffer);
-    write_serial_data();
-    write_buffer.clear();
+    write_buffer.append(static_cast<char>(0x0));
+    write_buffer.append(static_cast<char>(0x02));
+    WriteSerialData();
+
+    // TODO: Validate that open succeeded by waiting for the version string
+    winkeyer_open = true;
+}
+
+void SerialComms::setSpeed(int speed) {
+
+    if ( winkeyer_open ) {
+
+        // Winkeyer Wk3 Set Speed command <0x02> <nn>
+        qDebug() << "SerialComms::setSpeed(): Entered - speed:" << speed;
+        write_buffer.append(static_cast<char>(0x02));
+        write_buffer.append(static_cast<char>(speed));
+        WriteSerialData();  // Buffer cleared by write function
+
+    } else {
+
+        qDebug() << "SerialComms::setSpeed(): winkeyer not open";
+    }
+}
+
+void SerialComms::setupSpeedPotRange(uchar min, uchar max) {
+
+    // Winkeyer Wk3 Setup Speed Pot <05><nn1><nn2><nn3> nn1 = MIN, nn2 = RANGE, nn3 = 0
+    qDebug() << "SerialComms::setupSpeedPotRange(): Entered";
+    write_buffer.append(static_cast<char>(0x05));
+    write_buffer.append(static_cast<char>(min));
+    write_buffer.append(static_cast<char>(max));
+    write_buffer.append(static_cast<char>(0));
+    WriteSerialData();
+
+    // TODO: Validate that open succeeded by waiting for the version string
+    winkeyer_open = true;
 }
 
 void SerialComms::close_winkeyer() {
+
+    // Winkeyer Wk3 Close command 0x00, 0x03
     qDebug() << "SerialComms::close_winkeyer(): Entered";
-    char outc = 0x0;
-    write_buffer.append(outc);
-    outc = 0x03;
-    write_buffer.append(outc);
-    write_serial_data();
-    write_buffer.clear();
+    write_buffer.append(static_cast<char>(0x00));
+    write_buffer.append(static_cast<char>(0x03));
+    WriteSerialData();
+    winkeyer_open = false;
+}
+
+void SerialComms::clearWinkeyerBuffer() {
+    // Winkeyer Wk3 Clear Buffer command 0x0A
+    write_buffer.append(static_cast<char>(0x0A));
+    WriteSerialData();
 }
 
 void SerialComms::doEchoTest() {
-    char outc = 0x0;
-    write_buffer.append(outc);
-    outc = 0x04;
-    write_buffer.append(outc);
-    outc = 65;
-    write_buffer.append(outc);
-    qDebug() << "SerialComms::doEchoTest(): write_buffer size is now" << write_buffer.size();
-    display_all_bytes(write_buffer);
-    write_serial_data();
-    write_buffer.clear();
-    sendEcho = false;
-    qDebug() << "SerialComms::doEchoTest(): sendEcho is false" << "write_buffer size after clear" << write_buffer.size();
+
+    // Winkeyer Wk3 echo command 0x00 0x04
+    write_buffer.append(static_cast<char>(0x00));
+    write_buffer.append(static_cast<char>(0x04));
+    write_buffer.append(static_cast<char>('A'));
+    WriteSerialData();
 }
 
-void SerialComms::setConfigSerialStr(QString s) {
-    config_serial_str = s;
-}
-
-int SerialComms::write_serial_data() {
+int SerialComms::WriteSerialData() {
     int rc;
-    char cc = *(write_buffer.data());
-    QString str = QString::number(cc);
 
-    qDebug() << "SerialComms::write_serial_data(): size = " << write_buffer.size() << "buffer contains: " << str;
+    qDebug() << "SerialComms::WriteSerialData(): size = " << write_buffer.size() << "buffer contains: " << write_buffer;
     if ( active_serial_port_p == nullptr )
         return 0;
+
     rc = active_serial_port_p->write(write_buffer);
-    display_all_bytes(write_buffer);
-    qDebug() << "SerialComms::write_serial_data(): wrote " << rc << "bytes";
+    // qDebug() << "SerialComms::WriteSerialData(): wrote " << rc << "bytes";
     if ( rc == -1 ) {
-        qDebug() << "SerialComms::write_serial_data(): write error:" << active_serial_port_p->errorString();
-        write_buffer.clear();
-        return rc;
+        qDebug() << "SerialComms::WriteSerialData(): write error:" << active_serial_port_p->errorString();
     }
     write_buffer.clear();
     return rc;
@@ -148,76 +169,103 @@ void SerialComms::console_data_2_serial_out(QByteArray &b) {
     qDebug() << "SerialComms::console_data_2_serial_out(): Signal received ***************";
     write_buffer.clear();
     write_buffer = b;
-    write_serial_data();
+    WriteSerialData();
 }
 
-// Slot
 void SerialComms::slot_readyRead() {
-    qDebug() << "SerialComms::slot_readyRead(): Signal received - Slot entered";
-    read_serial_data();
+    readserialdata();
+
+#if 0
+    pRxThread = new SerialRxCommsThread;
+    pRxThread->setSerialCommsPtr(this);
+    runRxThread = true;
+    connect(pRxThread, &SerialRxCommsThread::serialRxReady, this, &SerialComms::readserialdata);
+    connect(pRxThread, &SerialRxCommsThread::finished, pRxThread, &QObject::deleteLater);
+
+    pRxThread->start();
+#endif
+
 }
 
-int SerialComms::read_serial_data() {
-
-    int rc = -2;
-    int countReady = 0;
-    char rbuff[512];
-
-    qDebug() << "SerialComms::read_serial_data(): Entered";
-
-    if ( (countReady = active_serial_port_p->bytesAvailable()) ) {
-        qDebug() << "SerialComms::read_serial_data(): countReady = " << countReady;
-        while ( (rc = active_serial_port_p->read(rbuff, countReady)) > 0) {
-            qDebug() << "SerialComms::read_serial_data(): read returned" << rc << countReady;
-            read_buffer.append(rbuff, countReady);
-            display_all_bytes(read_buffer);
+#if 0
+// Pseudo code from Wk3 datasheet V1.3
+Serial Comm Thread {
+    while (1) {
+        if (host has a command to send to WK3) {
+               send command to WK3;
+        }
+        else if (WK3:uart_byte_ready) {
+            wkbyte = WK3:uart_read();
+            if (( wkbyte & 0xc0) == 0xc0 {
+               it’s a status byte. (Host may or may not have asked for it.)
+               process status change, note that it could be a pushbutton change
+           }
+           else if ((wkbyte & 0xc0) == 0x80) {
+               it’s a speed pot byte (Host may or may not have asked for it.)
+               process speed pot change
+           }
+           else {
+               it must be an echo back byte
+               if (break-in==1) { it’s a paddle echo }
+               else { it’s a serial echo }
+           }
         }
     }
+}
+#endif
 
-    read_buffer.clear();
+int SerialComms::readserialdata() {
+
+    int rc = 0;
+    int countReady = 0;
+
+    if ( active_serial_port_p == nullptr )
+        return -1;
+
+    // qDebug() << "SerialComms::readserialdata(): Entered - read_buffer size:" << read_buffer.size();
+    // scomm_mutex.lock();
+
+    while ( (countReady = active_serial_port_p->bytesAvailable()) ) {
+        if ( countReady < 0 || countReady > 8 ) {
+            qDebug() << "SerialComms::readserialdata(): ******************* countReady unusual value:" << countReady;
+            continue;
+        }
+        rc = active_serial_port_p->read(read_buffer.data(), countReady < READ_BUFFER_SIZE ? countReady : READ_BUFFER_SIZE-1);
+        if ( rc == -1 ) {
+            qDebug() << "SerialComms::readserialdata(): ERROR:" << active_serial_port_p->error();
+        }
+
+        if ( (read_buffer.at(0) & 0xc0) == 0xc0 ) {
+            // It’s a status byte. (Host may or may not have asked for it.)
+            qDebug() << "SerialComms::readserialdata(): Status byte detected";
+        } else {
+            if ( (read_buffer.at(0) & 0xc0) == 0x80) {
+                // The two MS Bits of a Speed Pot status byte will always be b10
+                int speedPot = read_buffer.at(0) & 0x3f;
+                qDebug() << "SerialComms::readserialdata(): Speed Pot byte detected" << read_buffer << speedPot;
+            }
+        }
+        qDebug() << "SerialComms::readserialdata(): return value" << rc << "byte count:" << rc << "data:" << read_buffer;
+    }
     return rc;
 }
 
-void SerialComms::clear_serial_port_inbuffer() {
-    int rc = 0;
-    char b[64];
-    int count = 0;
-    qDebug() << "SerialComms::clear_serial_port_inbuffer(): entered - waiting";
-
-    // This function blocks until readReady - default time out 30 seconds, let's try 1 seconds
-    if ( active_serial_port_p->waitForReadyRead(250) == false ) {
-        qDebug() << "SerialComms::clear_serial_port_inbuffer(): waitForReadyRead = false";
-        return;
-    }
-    while ( count < 100 ) {
-        int i = 0;
-        if ( active_serial_port_p->QSerialPort::bytesAvailable() )
-            rc += active_serial_port_p->read(&b[i++], 1);
-        count++;
-        QThread::msleep(2); // Wait a tiny bit for more data
-    }
-    qDebug() << "SerialComms::clear_serial_port_inbuffer(): read" << rc << "bytes over" << count << "loops" << b;
-}
-
 void SerialComms::add_byte(char c) {
-    qDebug() << "SerialComms::add_byte(): " << c;
-        write_buffer.insert(1, c);
+        write_buffer.append(c);
 }
 
 void SerialComms::display_all_bytes(QByteArray &r) {
 
+#ifdef DISPLAY_ALL_BYTES
     qDebug() << "SerialComms::display_all_bytes(): Entered with" << r.size() << "bytes";
-    QByteArray::iterator iteratorByte;
+    QByteArray::iterator i;
     int count = 0;
-    for (iteratorByte = r.begin(); iteratorByte != r.end() ; iteratorByte++ ) {
-        QByteArray test1Byte(1,0); //Define a 1 Byte fixed length variable
-        test1Byte[0]= r.at(count++); //Assign each byte of the QByteArray to this variable
-        qDebug() << test1Byte.toHex(); //Print that 1 Byte in hex format
+    for (i = r.begin(); i != r.end() ; i++ ) {
+        QByteArray test1Byte(1,0);  // Define a 1 Byte fixed length variable
+        test1Byte[0]= r.at(count++);    // Assign each byte of the QByteArray to this variable
+        qDebug() << test1Byte.toHex();  // Print that 1 Byte in hex format
     }
-}
-
-void SerialComms::slot_channelReadyRead(int channel) {
-    qDebug() << "SerialComms::slot_channelReadyRead(): signal received on channel" << channel;
+#endif
 }
 
 void SerialComms::readVCC() {
@@ -227,7 +275,25 @@ void SerialComms::readVCC() {
     write_buffer.append(outc);
     qDebug() << "SerialComms::readVCC(): write_buffer size is now" << write_buffer.size();
     display_all_bytes(write_buffer);
-    write_serial_data();
+    WriteSerialData();
     write_buffer.clear();
     qDebug() << "SerialComms::readVCC(): Done";
+}
+
+void SerialRxCommsThread::run() {
+
+    qDebug() << "SerialRxCommsThread::run(): Entered";
+
+
+    while ( pSerialComm->runRxThread ) {
+        // pSerialComm->scomm_mutex.lock();
+
+        qDebug() << "SerialRxCommsThread::run(): runRxThread:" << pSerialComm->runRxThread;
+        // emit serialRxReady(count);
+        QThread::sleep(1);
+    }
+}
+
+void SerialRxCommsThread::setSerialCommsPtr(SerialComms *p) {
+    pSerialComm = p;
 }

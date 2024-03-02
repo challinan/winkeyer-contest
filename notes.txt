@@ -51,3 +51,15 @@ Current Startup Sequence:
     1. Setup UI - comes from mainwindow.ui FORM
     2. Instantiate Database object: Sqlite3_connector
         Connect signal to open config dialog
+		
+---------------------------------------------------------
+Threads Notes
+* Convert to Event driven
+* investigate QChildEvent as a way to kick off actions
+* QObject::thread() returns the thread in which the object lives
+* QCoreApplication::postEvent() posts an event for a certain object
+* You cannot access a QObject from more than one thread at the same time!!
+    *  This is likely the reason for the current crash
+* you can't delete a QObject from another thread
+	* Must use QObject::deleteLater() which will ultimately delete the obj in its own thread
+* 

@@ -7,9 +7,8 @@
 #define USER_PRESSED_ABORT 2
 #define FETCH_LAST
 
-Sqlite3_connector::Sqlite3_connector()
-{
-    // Initialize QMap function pointers
+Sqlite3_connector::Sqlite3_connector() {
+
     qDebug() << "Sqlite3_connector::Sqlite3_connector(): Entered";
 
     // Assemble the path to the on-disk database file
@@ -22,7 +21,6 @@ Sqlite3_connector::Sqlite3_connector()
         qDebug() << "Sqlite3_connector::Sqlite3_connector(): Error: isValid returned false";
         return;
     }
-
 }
 
 void Sqlite3_connector::initContinue() {
@@ -86,21 +84,7 @@ bool Sqlite3_connector::validateDatabasePath() {
     return true;
 }
 
-bool Sqlite3_connector::create_database_path(QString &rpath) {
-
-    bool rc;
-
-    // Validate that the path components to the database file on local storage is valid
-    QDir dir;
-    rc = dir.mkpath(rpath);
-    if ( rc == false ) {
-        qDebug() << "Sqlite3_connector::create_database_path(): mkpath failed";
-    }
-
-    return rc;
-}
-
- QList<QString> Sqlite3_connector::GetTableNameList() {
+QList<QString> Sqlite3_connector::GetTableNameList() {
 
 
     // Build a simple list of QStrings containing our table names

@@ -1,5 +1,6 @@
 #include <QString>
 #include <QPushButton>
+#include <QSerialPortInfo>
 
 #include "tabbed-config-dialog.h"
 
@@ -66,15 +67,6 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
         }
 
     }
-#if 0
-    if ( db_state != DB_NOEXIST &&  db_state != DB_NOTABLES ) {
-        get_local_data_into_dialog_T(pStationDataClassPtr);
-        get_local_data_into_dialog_T(pSysconfigDataClassPtr);
-        get_local_data_into_dialog_T(pContestDataClassPtr);
-    } else {
-        qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Skipping database read into tabs";
-    }
-#endif
 
     // Connect potential signals here
     connectStationTabTextChangedSignals();
@@ -105,15 +97,29 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
 
         QLineEdit *p;
         QString childName = e.value().fieldname;    // Might be "callsign", or "opname", etc
-        childName.append("EditBox");
-        qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): childName =" << childName;  // will be "callsignEditBox", etc.
+        if ( childName == "serialport" ) {
+            // Process the comboBox
+            childName.append("ComboBox");
+            qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): childName =" << childName;  // will be "callsignEditBox", etc.
+            QComboBox *pBox = findChild<QComboBox *>(childName);
+            if ( pBox == nullptr ) {
+                qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): child" << childName << "ComboBox not found";
+                return false;
+            }
+            QString tmps = pMap.value(e.value().fieldname);
+            pBox->addItem(pMap.value(e.value().fieldname));
+        } else {
+            childName.append("EditBox");
+            qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): childName =" << childName;  // will be "callsignEditBox", etc.
 
-        p = findChild<QLineEdit *>(childName);
-        if ( p == nullptr ) {
-            qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): child" << childName << "not found";
-            return false;
+            p = findChild<QLineEdit *>(childName);
+            if ( p == nullptr ) {
+                qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): child" << childName << "Edit Box not found";
+                return false;
+            }
+
+            p->setText(pMap.value(e.value().fieldname));
         }
-        p->setText(pMap.value(e.value().fieldname));
     }
     return true;
 }
@@ -209,6 +215,17 @@ DataTab::~DataTab() {
         delete p;
         // delete e.next();
     }
+
+    // Delete all the comboBoxes
+    QListIterator<QComboBox *> m(comboBoxesList);
+    while (m.hasNext() ) {
+        QComboBox *p = m.next();
+        // qDebug () << "Deleting: ******* " << p->objectName();
+        delete p;
+        // delete e.next();
+    }
+
+
     delete formLayout;
 }
 
@@ -230,8 +247,13 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
     QMapIterator<int, dbfields_values_t> e(db_fields);
 
     // First entry is the tablename
-    if (e.hasNext() )
+    if (e.hasNext() ) {
         e.next();   // Skip over table name
+    } else {
+        qDebug() << "StationDataTab::StationDataTab(): Failed - expected more rows in db_fields";
+        return;
+    }
+
 
     while ( e.hasNext() ) {
         e.next();
@@ -264,6 +286,98 @@ StationDataTab::~StationDataTab() {
     // Delete code in base class
 }
 
+// ******************  SystemConfigTab  **************************** //
+SystemConfigTab::SystemConfigTab(Sqlite3_connector *p, QWidget *parent)
+    : DataTab(p, parent)
+{
+    db = p;     // Pointer to sqlite3_connector database engine
+
+    SysconfigData *pSysconfigDataClassPtr = db->getSysconfigDbClassPtr();
+
+    // Get pointer to StationData db fields
+    QMap<int, dbfields_values_t> db_fields = pSysconfigDataClassPtr->getDbFields();
+
+    formLayout = new QFormLayout(this);
+
+    // {"serialport", "audioinport", audiooutport"}
+    QMapIterator<int, dbfields_values_t> e(db_fields);
+
+    // First entry is the tablename
+    if (e.hasNext() ) {
+        // Skip over table name - we don't need it here
+        e.next();
+    } else {
+        qDebug() << "SystemConfigTab::SystemConfigTab(): Failed - expected more rows in db_fields";
+        return;
+    }
+
+    while ( e.hasNext() ) {
+        e.next();
+        QString key = e.value().fieldname;
+
+        // Serial port needs a ComboBox
+        if ( key == "serialport" ) {
+            // Do we have a configured value? Check our local map
+            QMap<QString, QString> pMap = db->getSysconfigDbClassPtr()->getLocalDataMap();
+            QString configuredSerialPort = pMap.value("serialport");
+
+            QList<QSerialPortInfo> serialPortsList = QSerialPortInfo::availablePorts();
+
+            QComboBox *box = new QComboBox;
+            box->setInsertPolicy(QComboBox::InsertAtTop);
+
+            QListIterator m(serialPortsList);
+            while (m.hasNext()) {
+                QString s = m.next().portName();
+                if ( s.startsWith("cu.usbserial") ) {
+                    box->addItem(s);
+                }
+            }
+
+            if ( !configuredSerialPort.isEmpty() )
+                box->addItem(configuredSerialPort);
+
+            if ( box->count() == 0 ) {
+                box->addItem("No Port Found");
+            }
+
+            comboBoxesList.append(box);     // So we can delete it later
+            QString objname = key;
+            objname.append("ComboBox");
+            box->setObjectName(objname);
+
+            QString comboBoxLabel = e.value().field_label;
+            box->setMinimumWidth(270);
+            formLayout->addRow(comboBoxLabel, box);
+
+        } else {
+
+        // Create an appropriate QLineEdit, put it in the List, give it an objname, and add it to layout
+        QLineEdit *qle = new QLineEdit;
+        dataEditBoxes.append(qle); // Add this one to the QList<QLineEdit> list
+
+        QString objname = key;
+        objname.append("EditBox");
+        qle->setObjectName(objname);
+
+        QString editBoxLabel = e.value().field_label;
+        formLayout->addRow(editBoxLabel, qle);
+        }
+        // qDebug() << "SystemConfigTab::SystemConfigTab(): EditBox Object Name:" << objname << "key =" << key << "editBoxLabel = " << editBoxLabel;
+    }
+    setLayout(formLayout);
+}
+
+void SystemConfigTab::setLocalMapValueByKey(QString key, QString value) {
+    QMap<QString, QString> &p = db->getSysconfigDbClassPtr()->getLocalDataMap();
+    p.insert(key, value);
+}
+
+SystemConfigTab::~SystemConfigTab() {
+    // Delete code in base class
+}
+
+// ******************  ContestTab  **************************** //
 ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
     : DataTab(p, parent)
 {
@@ -285,7 +399,11 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
     if (e.hasNext() ) {
         // Skip over table name - we don't need it here
         e.next();
+    } else {
+        qDebug() << "ContestTab::ContestTab(): Failed - expected more rows in db_fields";
+        return;
     }
+
 
     while (e.hasNext() ) {
         QString key = e.next().value().fieldname;
@@ -305,59 +423,10 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
 }
 
 void ContestTab::setLocalMapValueByKey(QString key, QString value) {
-    QMap<QString, QString> p = db->getSysconfigDbClassPtr()->getLocalDataMap();
-    p.insert(key, value);
-}
-
-ContestTab::~ContestTab() {
-    // Delete code in base class
-}
-
-SystemConfigTab::SystemConfigTab(Sqlite3_connector *p, QWidget *parent)
-    : DataTab(p, parent)
-{
-    db = p;     // Pointer to sqlite3_connector database engine
-
-    SysconfigData *pSysconfigDataClassPtr = db->getSysconfigDbClassPtr();
-
-    // Get pointer to StationData db fields
-    QMap<int, dbfields_values_t> db_fields = pSysconfigDataClassPtr->getDbFields();
-
-    formLayout = new QFormLayout(this);
-
-    // {"serialport", "audioinport", audiooutport"}
-    QMapIterator<int, dbfields_values_t> e(db_fields);
-
-    // First entry is the tablename
-    if (e.hasNext() ) {
-        // Skip over table name - we don't need it here
-        e.next();
-    }
-
-    while ( e.hasNext() ) {
-        e.next();
-        QString key = e.value().fieldname;
-
-        // Create an appropriate QLineEdit, put it in the List, give it an objname, and add it to layout
-        QLineEdit *qle = new QLineEdit;
-        dataEditBoxes.append(qle); // Add this one to the QList<QLineEdit> list
-
-        QString objname = key;
-        objname.append("EditBox");
-        qle->setObjectName(objname);
-
-        QString editBoxLabel = e.value().field_label;
-        formLayout->addRow(editBoxLabel, qle);
-        // qDebug() << "SystemConfigTab::SystemConfigTab(): EditBox Object Name:" << objname << "key =" << key << "editBoxLabel = " << editBoxLabel;
-    }
-    setLayout(formLayout);
-}
-
-void SystemConfigTab::setLocalMapValueByKey(QString key, QString value) {
     QMap<QString, QString> p = db->getContestDbClassPtr()->getLocalDataMap();
     p.insert(key, value);
 }
 
-SystemConfigTab::~SystemConfigTab() {
+ContestTab::~ContestTab() {
     // Delete code in base class
 }

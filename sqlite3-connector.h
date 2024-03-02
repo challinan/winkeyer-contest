@@ -30,7 +30,6 @@ class StationData;
 class SysconfigData;
 class ContestData;
 
-
 class Sqlite3_connector : public QObject
 {
     Q_OBJECT
@@ -79,7 +78,6 @@ private:
     // Construct the path name to our external database on local storate (hard drive, etc)
     QString createDatabaseFullPath();
     bool validateDatabasePath();
-    bool create_database_path(QString &rpath);
 
 private:
     StationData *pStationData;
