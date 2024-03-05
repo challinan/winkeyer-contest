@@ -8,6 +8,7 @@
 #include "ui_station_data.h"
 #include "sqlite3-connector.h"
 #include "tabbed-config-dialog.h"
+#include "transmitwindow.h"
 
 #include <QTextCursor>
 #include <QPushButton>
@@ -53,6 +54,7 @@ private:
     TopLevelTabContainerDialog *pTabbedDialogPtr;
     QTimer *speed_spinbox_timer;
     bool speed_timer_active;
+    TransmitWindow *pTxWindow;
 
 protected:
     void showEvent(QShowEvent *event) override;

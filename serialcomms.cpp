@@ -13,6 +13,8 @@ SerialComms::SerialComms(QObject *parent, Sqlite3_connector *p)
     winkeyer_open = false;
     runRxThread = false;
     active_serial_port_p = nullptr;
+    speedpot_timer_fired = false;
+    simTimerRunning = false;
 
     // Set size and clear read and write buffers
     // QString ptrStr = QString( "0x%1" ).arg( reinterpret_cast<quintptr>(read_buffer.data()),
@@ -28,9 +30,10 @@ SerialComms::SerialComms(QObject *parent, Sqlite3_connector *p)
 SerialComms::~SerialComms() {
 
     qDebug() << "SerialComms::~SerialComms(): Destructor entered ****";
-    close_serial_port();
-    if ( active_serial_port_p )
+    if ( active_serial_port_p ) {
+        close_serial_port();
         delete active_serial_port_p;
+    }
     // Disconnect signals ???
 
     // Stop and kill our worker thread
@@ -40,13 +43,13 @@ SerialComms::~SerialComms() {
     pRxThread->wait();
     delete pRxThread;
 #endif
+    qDebug() << "SerialComms::~SerialComms(): Destructor exiting ****";
 }
 
 bool SerialComms::openSerialPort() {
 
     // Qt Default values: No Parity, 8-Bit data, 1 Stop bit
     active_serial_port_p = new QSerialPort;
-    // active_serial_port_p->setPort(config_serial_port);
     active_serial_port_p->setPortName(config_serial_port);
     active_serial_port_p->setBaudRate(QSerialPort::Baud1200);
     qDebug() << "SerialComms::openSerialPort(): selected serial port is " << active_serial_port_p->portName();
@@ -62,14 +65,11 @@ bool SerialComms::openSerialPort() {
     connect(active_serial_port_p, &QIODevice::readyRead, this, &SerialComms::slot_readyRead, Qt::QueuedConnection);
 
     open_winkeyer();
-    // setupSpeedPotRange();
-
     return true;
 }
 
 void SerialComms::close_serial_port() {
 
-    qDebug() << "SerialComms::close_serial_port(): closing serial port";
     close_winkeyer();
 
     // Make sure all bytes have been transmitted
@@ -86,9 +86,19 @@ void SerialComms::open_winkeyer() {
     qDebug() << "SerialComms::open_winkeyer(): Entered";
     write_buffer.append(static_cast<char>(0x0));
     write_buffer.append(static_cast<char>(0x02));
-    WriteSerialData();
+    writeSerialData();
 
+#if 0
     // TODO: Validate that open succeeded by waiting for the version string
+    uint timeout = 0;
+    while ( version_string == 0 && timeout++ < 0xffffff ) {
+        QTimer wait here
+    }
+#endif
+
+    // On successful open, connect signal
+    c_statusByteConnx = connect(this, &SerialComms::statusByteReceived, this, &SerialComms::processStatusByte);
+    c_speedPotRxConnx = connect(this, &SerialComms::speedPotValueReceived, this, &SerialComms::processSpeedPot);
     winkeyer_open = true;
 }
 
@@ -100,7 +110,8 @@ void SerialComms::setSpeed(int speed) {
         qDebug() << "SerialComms::setSpeed(): Entered - speed:" << speed;
         write_buffer.append(static_cast<char>(0x02));
         write_buffer.append(static_cast<char>(speed));
-        WriteSerialData();  // Buffer cleared by write function
+        writeSerialData();  // Buffer cleared by write function
+        currentSpeed = speed;
 
     } else {
 
@@ -108,15 +119,15 @@ void SerialComms::setSpeed(int speed) {
     }
 }
 
-void SerialComms::setupSpeedPotRange(uchar min, uchar max) {
+void SerialComms::setupSpeedPotRange(uchar min, uchar range) {
 
     // Winkeyer Wk3 Setup Speed Pot <05><nn1><nn2><nn3> nn1 = MIN, nn2 = RANGE, nn3 = 0
-    qDebug() << "SerialComms::setupSpeedPotRange(): Entered";
+    qDebug() << "SerialComms::setupSpeedPotRange(): Entered - min:" << min << "range:" << range;
     write_buffer.append(static_cast<char>(0x05));
     write_buffer.append(static_cast<char>(min));
-    write_buffer.append(static_cast<char>(max));
+    write_buffer.append(static_cast<char>(range));
     write_buffer.append(static_cast<char>(0));
-    WriteSerialData();
+    writeSerialData();
 
     // TODO: Validate that open succeeded by waiting for the version string
     winkeyer_open = true;
@@ -125,17 +136,33 @@ void SerialComms::setupSpeedPotRange(uchar min, uchar max) {
 void SerialComms::close_winkeyer() {
 
     // Winkeyer Wk3 Close command 0x00, 0x03
-    qDebug() << "SerialComms::close_winkeyer(): Entered";
+    qDebug() << "SerialComms::close_winkeyer(): Entered: serial port:" << active_serial_port_p;
+    reset_winkeyer();
+    active_serial_port_p->waitForBytesWritten(100);
+
+
+    // Send Winkeyer close command
     write_buffer.append(static_cast<char>(0x00));
     write_buffer.append(static_cast<char>(0x03));
-    WriteSerialData();
+    writeSerialData();
+    active_serial_port_p->waitForBytesWritten(100);
+
     winkeyer_open = false;
+    disconnect(c_statusByteConnx);
+    disconnect(c_speedPotRxConnx);
 }
 
 void SerialComms::clearWinkeyerBuffer() {
     // Winkeyer Wk3 Clear Buffer command 0x0A
     write_buffer.append(static_cast<char>(0x0A));
-    WriteSerialData();
+    writeSerialData();
+}
+
+void SerialComms::reset_winkeyer() {
+    // Winkeyer Wk3 Close command 0x00, 0x01
+    write_buffer.append(static_cast<char>(0x00));
+    write_buffer.append(static_cast<char>(0x01));
+    writeSerialData();
 }
 
 void SerialComms::doEchoTest() {
@@ -144,20 +171,20 @@ void SerialComms::doEchoTest() {
     write_buffer.append(static_cast<char>(0x00));
     write_buffer.append(static_cast<char>(0x04));
     write_buffer.append(static_cast<char>('A'));
-    WriteSerialData();
+    writeSerialData();
 }
 
-int SerialComms::WriteSerialData() {
+int SerialComms::writeSerialData() {
     int rc;
 
-    qDebug() << "SerialComms::WriteSerialData(): size = " << write_buffer.size() << "buffer contains: " << write_buffer;
+    // qDebug() << "SerialComms::writeSerialData(): size = " << write_buffer.size() << "buffer contains: " << write_buffer;
     if ( active_serial_port_p == nullptr )
         return 0;
 
     rc = active_serial_port_p->write(write_buffer);
-    // qDebug() << "SerialComms::WriteSerialData(): wrote " << rc << "bytes";
+    // qDebug() << "SerialComms::writeSerialData(): wrote " << rc << "bytes";
     if ( rc == -1 ) {
-        qDebug() << "SerialComms::WriteSerialData(): write error:" << active_serial_port_p->errorString();
+        qDebug() << "SerialComms::writeSerialData(): write error:" << active_serial_port_p->errorString();
     }
     write_buffer.clear();
     return rc;
@@ -169,7 +196,7 @@ void SerialComms::console_data_2_serial_out(QByteArray &b) {
     qDebug() << "SerialComms::console_data_2_serial_out(): Signal received ***************";
     write_buffer.clear();
     write_buffer = b;
-    WriteSerialData();
+    writeSerialData();
 }
 
 void SerialComms::slot_readyRead() {
@@ -230,6 +257,8 @@ int SerialComms::readserialdata() {
             qDebug() << "SerialComms::readserialdata(): ******************* countReady unusual value:" << countReady;
             continue;
         }
+        // qDebug() << "SerialComms::readserialdata(): bytesAvailable:" << countReady;
+        read_buffer.resize(countReady);
         rc = active_serial_port_p->read(read_buffer.data(), countReady < READ_BUFFER_SIZE ? countReady : READ_BUFFER_SIZE-1);
         if ( rc == -1 ) {
             qDebug() << "SerialComms::readserialdata(): ERROR:" << active_serial_port_p->error();
@@ -237,15 +266,15 @@ int SerialComms::readserialdata() {
 
         if ( (read_buffer.at(0) & 0xc0) == 0xc0 ) {
             // It’s a status byte. (Host may or may not have asked for it.)
-            qDebug() << "SerialComms::readserialdata(): Status byte detected";
+            // qDebug() << "SerialComms::readserialdata(): Status byte detected";
+            emit statusByteReceived(read_buffer.at(0));
         } else {
             if ( (read_buffer.at(0) & 0xc0) == 0x80) {
-                // The two MS Bits of a Speed Pot status byte will always be b10
-                int speedPot = read_buffer.at(0) & 0x3f;
-                qDebug() << "SerialComms::readserialdata(): Speed Pot byte detected" << read_buffer << speedPot;
+                // Speed Pot value received (The two MS Bits of a Speed Pot status byte will always be b10)
+                emit speedPotValueReceived(read_buffer.at(0) & 0x3f);
             }
         }
-        qDebug() << "SerialComms::readserialdata(): return value" << rc << "byte count:" << rc << "data:" << read_buffer;
+        // qDebug() << "SerialComms::readserialdata(): return value" << rc << "byte count:" << rc << "data:" << read_buffer;
     }
     return rc;
 }
@@ -275,9 +304,79 @@ void SerialComms::readVCC() {
     write_buffer.append(outc);
     qDebug() << "SerialComms::readVCC(): write_buffer size is now" << write_buffer.size();
     display_all_bytes(write_buffer);
-    WriteSerialData();
+    writeSerialData();
     write_buffer.clear();
     qDebug() << "SerialComms::readVCC(): Done";
+}
+
+void SerialComms::processStatusByte(uchar status) {
+    // qDebug() << "SerialComms::processStatusByte: Slot entered" << status;
+    // Bit 7-5: 110   (0xC0 mask) identiies status byte
+    // bit 4: WAIT    (Winkeyer waiting for internal event to finish
+    // bit 3: KEYDOWN (keydown status when 1)
+    // bit 2: BUSY    (winkeyer busy sending more when 1)
+    // bit 1: BREAKIN (paddle breaking active when 1)
+
+    if ( status & WINKEYER_WAIT ) qDebug() << "    wait active";
+    if ( status & WINKEYER_KEYDOWN ) qDebug() << "    keydown active:";
+    if ( status & WINKEYER_BUSY ) qDebug() << "    busy active:";
+    if ( status & WINKEYER_BREAKIN ) qDebug() << "    breakin active";
+    if ( status & WINKEYER_XOFF ) qDebug() << "    XOFF active - buffer 2/3 full";
+}
+
+void SerialComms::processSpeedPot(uchar speed) {
+
+    uchar setSpeed = speed + SPEEDPOT_MIN;
+    currentSpeed = setSpeed;
+    // qDebug() << "SerialComms::processSpeedPot: Slot entered: speed" << setSpeed;
+
+    if ( speedpot_timer_fired == false ) {
+        speedpot_timer_fired = true;
+        speedPotTimer = new QTimer(this);
+        speedPotTimer->setSingleShot(true);
+        c_speedpot_timerConnx = connect(speedPotTimer, &QTimer::timeout, this, &SerialComms::slotSendWinkeyerSpeed);
+        speedPotTimer->start(250);
+        return;
+    } else  {
+        speedPotTimer->setInterval(250); // Bump timer
+    }
+}
+
+void SerialComms::slotSendWinkeyerSpeed() {
+
+    qDebug() << "SerialComms::slotSendWinkeyerSpeed(): speed" << currentSpeed;
+    speedpot_timer_fired = false;
+    disconnect(c_speedpot_timerConnx);
+    delete speedPotTimer;
+
+    setSpeed(currentSpeed);
+}
+
+void SerialComms::transmitSimulator(uchar c) {
+    // it takes about 10 mS to send a single character at 1200 baud
+}
+
+void SerialComms::processTxChar(char c) {
+
+    // This needs to be serialized - I think a new timer is being created
+    //  while an old one is still not yet expired causing a crash
+    qDebug() << "SerialComms::processTxChar(): Char:" << static_cast<char>(c);
+
+    if ( !simTimerRunning ) {
+        txSimTimer = new QTimer(this);
+        txSimTimer->setSingleShot(true);
+        c_sim_timerConnx = connect(txSimTimer, &QTimer::timeout, this, &SerialComms::simTimerTimeout);
+        txSimTimer->start(750);
+        simTimerRunning = true;
+    }
+}
+
+void SerialComms::simTimerTimeout() {
+    simTimerRunning = false;
+    qDebug() << "SerialComms::simTimerTimeout(): ************** simTimer Timeout";
+    disconnect(c_sim_timerConnx);
+    delete txSimTimer;
+    emit TxCharComplete();  // Let the CwTxThread object know we've sent the character
 }
 
 void SerialRxCommsThread::run() {

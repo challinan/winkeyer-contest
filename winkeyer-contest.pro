@@ -16,6 +16,7 @@ SOURCES += \
     mainwindow.cpp \
     serialcomms.cpp \
     sqlite3-connector.cpp \
+    transmitwindow.cpp \
     tabbed-config-dialog.cpp
 
 HEADERS += \
@@ -23,6 +24,7 @@ HEADERS += \
     mainwindow.h \
     serialcomms.h \
     sqlite3-connector.h \
+    transmitwindow.h \
     tabbed-config-dialog.h
 
 FORMS += \
