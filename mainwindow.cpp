@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     connect(this, &MainWindow::waitVisibleSignal, this, &MainWindow::waitForVisible, Qt::QueuedConnection);
     connect(ui->configPushButton, &QPushButton::clicked, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
-    ui->CwTx_TextEdit->setPlaceholderText("This one will be replaced");
+    // ui->CwTx_TextEdit->setPlaceholderText("This one will be replaced");
 
     // Entry to main event loop starts when this constructor returns
     QRect r;
@@ -46,6 +46,8 @@ MainWindow::MainWindow(QWidget *parent)
     r.setWidth(852);
     r.setHeight(425);
     this->setGeometry(r);
+
+    ui->cwTextEdit->setFocus();
 
     qDebug() << "MainWindow::MainWindow(): Ctor Exiting complete" << r;
 }
@@ -98,11 +100,11 @@ bool MainWindow::initialize_mainwindow() {
     }
 #endif
 
-    // Create the CW Transmit window object in the main frame
-    pTxWindow = new TransmitWindow(this);
+    // CW Transmit window is now being created in the main ui
+    // pTxWindow = new TransmitWindow(this);
     // Connect signals/slots
-    connect(pTxWindow->tx_thread_p, &CWTX_Thread::sendTxChar, serial_comms_p, &SerialComms::processTxChar, Qt::QueuedConnection);
-    connect(serial_comms_p, &SerialComms::TxCharComplete,  pTxWindow->tx_thread_p, &CWTX_Thread::serialPortTxCharComplete, Qt::QueuedConnection);
+    connect(ui->cwTextEdit->tx_thread_p, &CWTX_Thread::sendTxChar, serial_comms_p, &SerialComms::processTxChar, Qt::QueuedConnection);
+    connect(serial_comms_p, &SerialComms::TxCharComplete,  ui->cwTextEdit->tx_thread_p, &CWTX_Thread::serialPortTxCharComplete, Qt::QueuedConnection);
 
     // TODO How, where and when do I kill this timer?
     blinkTimer = new QTimer(this);
@@ -147,7 +149,7 @@ void MainWindow::changeConfigButtonTextColor() {
 MainWindow::~MainWindow()
 {
     qDebug() << "MainWindow::~MainWindow(): dtor entered";
-    delete pTxWindow;
+    // delete pTxWindow;
 #ifndef SKIP_SERIAL_PORT_INIT
    delete serial_comms_p;
 #endif
@@ -161,7 +163,7 @@ void MainWindow::serial_port_detected(QString &s) {
     qDebug() << "MainWindow::serial_port_detected()" << s;
 }
 
-
+#if 0
 void MainWindow::on_CwTx_TextEdit_textChanged()
 {
     QTextCursor cursor = ui->CwTx_TextEdit->textCursor();
@@ -188,6 +190,7 @@ void MainWindow::on_CwTx_TextEdit_textChanged()
     serial_comms_p->add_byte(c);
     serial_comms_p->writeSerialData();
 }
+#endif
 
 void MainWindow::on_exitPushButton_clicked()
 {
@@ -240,12 +243,4 @@ void MainWindow::UpdateSpeed() {
     qDebug() << "MainWindow::UpdateSpeed(): Timer timedout - slot entered - speed now" << speed;
 
     serial_comms_p->setSpeed(speed);
-}
-
-void MainWindow::keyPressEvent(QKeyEvent *event) {
-    if ( event->key() == Qt::Key_Escape) {
-        serial_comms_p->clearWinkeyerBuffer();
-        ui->CwTx_TextEdit->clear();
-    }
-    QMainWindow::keyPressEvent(event);
 }

@@ -58,13 +58,6 @@ int CBuffer::getNumCharsQueued() {
     int num;
     //  Excel: if(tail<head,((tail%size))-head) else (tail%size)-head
     num = (tail < head) ? (tail % CBUFF_SIZE) - head + CBUFF_SIZE : (tail % CBUFF_SIZE) - head;
-#if 0
-    if ( tail<head ) {
-        num = (tail % CBUFF_SIZE) - head;
-    } else {
-        num = (tail % size) - head;
-    }
-#endif
     return num;
 }
 
@@ -72,17 +65,13 @@ bool CBuffer::deleteLast() {
     if ( isEmpty() )
         return false;
 
-    qDebug() << "CBuffer::deleteLast(): head:" << head << " | Head char" << cbuff[head] << "| Tail index" << tail << "tail char" << cbuff[tail-1];
-    if ( tail == 0 ) {
-        tail = sizeof(cbuff) - 1;
-    } else {
-        tail--;
-    }
+    tail = (tail - 1) % CBUFF_SIZE;
+    qDebug() << "CBuffer::deleteLast(): head:" << head << "Head char" << cbuff[head] << "Tail index" << tail << "tail char" << cbuff[tail-1];
     return true;
 }
 
-TransmitWindow::TransmitWindow(MainWindow *parent)
-        : QTextEdit(parent)
+TransmitWindow::TransmitWindow(QWidget *parent)
+                : QTextEdit(parent)
 {
 
     // pSerial = p;    // Store serial port object pointer
@@ -112,9 +101,7 @@ TransmitWindow::TransmitWindow(MainWindow *parent)
     tx_position = 0;
     last_size = 0;
     is_transmitting = false;
-    key_count = 0;
     // For debug only
-    key_release_count = 0;
     key_down_count = 0;
 
     // Initialize circular buffer
@@ -160,25 +147,30 @@ void TransmitWindow::keyPressEvent(QKeyEvent *event) {
     if ( key == Qt::Key_Escape) {
         // Set Rig to RX immediately here
         txReset();
-        goto eventDone;
+        goto keyPressEventDone;
     }
 
     // This is a debug tool
     if ( key == Qt::Key_Backslash ) {
         // R() is a C++ raw string literal - dunno where I learned that :-)
         qDebug() << R"(\\\\\)" << "text window size" << toPlainText().size() << "tx_position" << tx_position;
-        qDebug() << "key_down_count" << key_down_count << "key_release_count" << key_release_count;
-        return;
+        goto keyPressEventDone;
     }
 
+#if 0
     // Allow the Delete key
     if ( key == Qt::Key_Delete || key == Qt::Key_Backspace ) {
-        bf.deleteLast();
-        goto eventDone;
+        buffMutex.lock();
+        if ( !bf.deleteLast() ) {
+            QApplication::beep();
+        }
+        buffMutex.unlock();
+        goto keyPressEventDone;
     }
+#endif
 
     if ( key == Qt::Key_Return )
-        goto eventDone;
+        goto keyPressEventDone;
 
     c = (char) key;
     c = toupper(c);
@@ -189,7 +181,7 @@ void TransmitWindow::keyPressEvent(QKeyEvent *event) {
     if ( b == false ) {
         QApplication::beep();
         // Ignore this character - buffer is full
-        return;
+        goto keyPressEventDone;
     }
     emit startTx(); // Send character to tx thread for transmission
 
@@ -197,9 +189,8 @@ void TransmitWindow::keyPressEvent(QKeyEvent *event) {
     // At this point, the character reported by this event hasn't hit the text window yet.
     // So size() will return zero on the first character.  Duh!
     // So we'll let the KeyReleased() event do the unhighlighting
-    key_count++;
 
-eventDone:
+keyPressEventDone:
     QTextEdit::keyPressEvent((event));
 }
 
@@ -207,40 +198,19 @@ void TransmitWindow::keyReleaseEvent(QKeyEvent *event) {
 
     CBuffer &bf = ccbuf;
 
-    key_release_count++;
-
-    if ( event->key() == Qt::Key_Backslash || event->key() == Qt::Key_Return) {
-        return;   // backslash and Enter key
-    }
-
-    highlightTextMutex.lock();
-    moveCursor(QTextCursor::End, QTextCursor::MoveAnchor);
-    setCurrentCharFormat(normal_f);
-    highlightTextMutex.unlock();
-
     // Suppoprt for the delete key
     if ( event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace ) {
         qDebug() << "TransmitWindow::keyReleaseEvent(): Backspace: text window size:" << toPlainText().size() << "tx_position" << tx_position;
-        if ( toPlainText().size() > tx_position ) {
-            buffMutex.lock();
-            bool rc = bf.deleteLast();
-            buffMutex.unlock();
-            tx_position = tx_position == 0 ? 0 : tx_position--;
-            if ( rc == false ) {
-                qDebug() << "TransmitWindow::keyReleaseEvent(): could not remove end of buffer on backspace";
-                QApplication::beep();
-            }
-
-            int i = toPlainText().size();
-            if ( i > 0 ) {
-                setText(toPlainText().left(i));
-                moveCursor(QTextCursor::End, QTextCursor::MoveAnchor);
-            }
-            else
-                qDebug() << "TransmitWindow::keyReleaseEvent(): can't backspace";
+        buffMutex.lock();
+        bool rc = bf.deleteLast();
+        buffMutex.unlock();
+        if ( rc == false ) {
+            qDebug() << "TransmitWindow::keyReleaseEvent(): buffer empty - can't backspace";
+            QApplication::beep();
         }
     }
 
+keyReleaseEventDone:
     QTextEdit::keyReleaseEvent(event);
 }
 
@@ -253,26 +223,37 @@ void TransmitWindow::processTextChanged() {
 
 void TransmitWindow::markCharAsSent() {
 
-    qDebug() << "TransmitWindow::markCharAsSent() - Slot Entered";
     int size = toPlainText().size();
+    int cpos = cursor.position();
+    qDebug() << "TransmitWindow::markCharAsSent() - Slot Entered: size:" << size << "cursor.position:" << cpos << "tx_position" << tx_position;
 
     // Did we get a clear() event (ESC)?
     if ( size == 0 ) return;
 
-    tx_position++;
     highlightTextMutex.lock();
 
-    // Higlight the character as it is processed from the transmit window
-    cursor.setPosition(0, QTextCursor::MoveAnchor);
-    bool b = cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, tx_position);
+    // Higlight (using strikeout and color) the character at tx_position
+    cursor.setPosition(tx_position, QTextCursor::MoveAnchor);
+    qDebug() << "TransmitWindow::markCharAsSent() - setPosition: size:" << size << "cursor.position:" << cpos << "tx_position" << tx_position;
+
+    bool b = cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);    // Move right one position
+    qDebug() << "TransmitWindow::markCharAsSent() - movePosition: size:" << size << "cursor.position:" << cpos << "tx_position" << tx_position;
     if ( b == false ) {
-        qDebug() << "cursor.movePosition() failed5:" << "cursor anchor" << cursor.anchor() << "tx_position:" << tx_position << "text window size" << toPlainText().size();
+        qDebug() << "cursor.movePosition() failed6:" << "cursor anchor" << cursor.anchor() << "tx_position:" << tx_position << "text window size" << toPlainText().size();
         highlightTextMutex.unlock();
         return;
     }
+
+    // Apply the colorization to the current cursor selection
     cursor.setCharFormat(strikethrough_f);
+
+    // Reset for the next character
+    cursor.clearSelection();
+    setCurrentCharFormat(normal_f);
     highlightTextMutex.unlock();
-    // qDebug() << "TransmitWindow::mackCharAsSent(): debug count =" << key_release_count << "tx_position =" << tx_position;
+    // qDebug() << "TransmitWindow::mackCharAsSent(): debug count =" << "tx_position =" << tx_position;
+
+    tx_position++;
 }
 
 void TransmitWindow::mousePressEvent(QMouseEvent *event) {
@@ -297,8 +278,6 @@ void TransmitWindow::txReset() {
     tpos.block = 1;
     last_size = 0;
     tx_position = 0;
-    key_count = 0;
-    key_release_count = 0;
     buffMutex.lock();
     bf.clear();      // Clear our circular buffer
     buffMutex.unlock();

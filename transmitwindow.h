@@ -19,7 +19,7 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
-#define CBUFF_SIZE 8
+#define CBUFF_SIZE 12
 
 class CWTX_Thread;
 class MainWindow;
@@ -54,7 +54,7 @@ class TransmitWindow : public QTextEdit
     friend class CWTX_Thread;
     Q_OBJECT
 public:
-    explicit TransmitWindow(MainWindow *parent = nullptr);
+    TransmitWindow(QWidget *parent = nullptr);
     ~TransmitWindow();
 
 private:
@@ -76,7 +76,6 @@ protected:
 
 private:
      int tx_position;
-     char key_count;
      int last_size;
      bool is_transmitting;
      QTextCursor cursor;
@@ -91,7 +90,6 @@ private:
      CBuffer ccbuf;
 
      // For debug only
-     int key_release_count;
      int key_down_count;
      QMutex highlightTextMutex;
 

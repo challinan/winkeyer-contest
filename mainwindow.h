@@ -34,7 +34,6 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    void keyPressEvent(QKeyEvent *event) override;
     bool initialize_mainwindow();
     bool initSucceeded();
 
@@ -63,7 +62,6 @@ public slots:
     void serial_port_detected(QString &s);
 
 private slots:
-    void on_CwTx_TextEdit_textChanged();
     void on_exitPushButton_clicked();
     void changeConfigButtonTextColor();
     void launchConfigDialog();

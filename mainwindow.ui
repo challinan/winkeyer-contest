@@ -14,16 +14,6 @@
    <string>Winkeyer Contester</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QPlainTextEdit" name="CwTx_TextEdit">
-    <property name="geometry">
-     <rect>
-      <x>140</x>
-      <y>300</y>
-      <width>571</width>
-      <height>74</height>
-     </rect>
-    </property>
-   </widget>
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
@@ -107,6 +97,16 @@
      <string>Speed</string>
     </property>
    </widget>
+   <widget class="TransmitWindow" name="cwTextEdit">
+    <property name="geometry">
+     <rect>
+      <x>140</x>
+      <y>300</y>
+      <width>571</width>
+      <height>74</height>
+     </rect>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -126,6 +126,13 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TransmitWindow</class>
+   <extends>QTextEdit</extends>
+   <header>transmitwindow.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
