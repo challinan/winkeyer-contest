@@ -12,8 +12,8 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     tabWidget = new QTabWidget;
 
     pStationDataTab = new StationDataTab(db);
-    pContestTab = new ContestTab(db);
     pSysconfigTab = new SystemConfigTab(db);
+    pContestTab = new ContestTab(db);
 
     // Get pointers to Database Sub-classes - yup, this is super ugly
     pStationDataClassPtr = db->getStationDbClassPtr();
@@ -21,8 +21,8 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     pContestDataClassPtr = db->getContestDbClassPtr();
 
     tabWidget->addTab(pStationDataTab, "StationData");
-    tabWidget->addTab(pContestTab, "Contest Config");
     tabWidget->addTab(pSysconfigTab, "System Config");
+    tabWidget->addTab(pContestTab, "Contest Config");
     qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Tabs Added";
 
     // Create two standard push buttons, and connect each of them to the appropriate slots in the dialog
@@ -79,9 +79,6 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
     // Get pointer to StationData db fields
     const QMap<int, dbfields_values_t> &db_fields = pDataClassPtr->getDbFields();
     QMap<QString, QString> &pMap = pDataClassPtr->getLocalDataMap();
-
-    // For debug only
-    // db->dump_local_station_data();
 
     QMapIterator<int, dbfields_values_t> e(db_fields);
     if ( e.hasNext() ) {
@@ -385,14 +382,14 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
 
     ContestData *pContestDataClassPtr = db->getContestDbClassPtr();
 
-    // Get pointer to StationData db fields
+    // Get pointer to Contest Data db fields
     QMap<int, dbfields_values_t> db_fields = pContestDataClassPtr->getDbFields();
 
     // TOOO: Get these from the new table
 
     formLayout = new QFormLayout(this);
 
-    // {"sequence", "section", "rst"}
+    // {"sequence", "rst"}
 
     QMapIterator<int, dbfields_values_t> e(db_fields);
     // First entry is the tablename
@@ -417,13 +414,13 @@ ContestTab::ContestTab(Sqlite3_connector *p, QWidget *parent)
 
         QString editBoxLabel = e.value().field_label;
         formLayout->addRow(editBoxLabel, qle);
-        // qDebug() << "ContestTab::ContestTab(): EditBox Object Name:" << objname << "key =" << key << "editBoxLabel = " << editBoxLabel;
+        qDebug() << "ContestTab::ContestTab(): EditBox Object Name:" << objname << "key =" << key << "editBoxLabel = " << editBoxLabel;
     }
     setLayout(formLayout);
 }
 
 void ContestTab::setLocalMapValueByKey(QString key, QString value) {
-    QMap<QString, QString> p = db->getContestDbClassPtr()->getLocalDataMap();
+    QMap<QString, QString> &p = db->getContestDbClassPtr()->getLocalDataMap();
     p.insert(key, value);
 }
 

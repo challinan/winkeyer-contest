@@ -39,7 +39,7 @@ public:
     QList<QSerialPortInfo> &get_pList();
     bool openSerialPort();
     int writeSerialData();
-    int readserialdata();
+    int readSerialData();
     void setNetcommObjPointer(NetworkComms *pNetworkObj);
     void add_byte(char c);
     void doEchoTest();
@@ -59,6 +59,7 @@ public slots:
     void slotSendWinkeyerSpeed();
     void processTxChar(char c);
     void simTimerTimeout();
+    void reportSerialOpen(QByteArray &b);
 
 private:
     void open_winkeyer();
@@ -82,6 +83,7 @@ private:
     QTimer *txSimTimer;
     uchar currentSpeed;
     bool simTimerRunning;
+    QString version_string;
 
     // Indicate whether Winkeyer can accept input commands
     bool winkeyer_open;

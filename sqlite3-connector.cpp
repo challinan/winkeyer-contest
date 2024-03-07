@@ -175,7 +175,6 @@ bool Sqlite3_connector::syncGeneric_write_to_database_T(T *pDbClass) {
     op.append(" (");
 
     // This QList will hold the keys in order of their appearance
-    QList<QString> database_field_keys;
     QString fieldsTmp;
 
     QMapIterator<int, dbfields_values_t> e(pFields);
@@ -184,8 +183,6 @@ bool Sqlite3_connector::syncGeneric_write_to_database_T(T *pDbClass) {
     while ( e.hasNext()) {
         e.next();
 
-        // TODO Looks like fieldsTmp and database_field_keys are redundant
-        database_field_keys.append(e.value().fieldname);
         fieldsTmp.append(e.value().fieldname);
         if ( e.hasNext() )
             fieldsTmp.append(", ");

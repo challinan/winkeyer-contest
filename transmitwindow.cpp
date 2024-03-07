@@ -244,7 +244,7 @@ void TransmitWindow::markCharAsSent() {
         return;
     }
 
-    // Apply the colorization to the current cursor selection
+    // Apply the formatting to the current cursor selection
     cursor.setCharFormat(strikethrough_f);
 
     // Reset for the next character

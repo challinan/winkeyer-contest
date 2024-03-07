@@ -25,7 +25,7 @@ public:
     ~DataBaseTableBaseClass();
     virtual const QMap<int, dbfields_values_t> &getDbFields() = 0;
 
-    // TODO: This can be deleted
+    // Local copy of database
     virtual QMap<QString, QString> &getLocalDataMap() = 0;
 
     bool createDbTable();

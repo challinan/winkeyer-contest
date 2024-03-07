@@ -23,9 +23,8 @@ void MainWindow::waitForVisible() {
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
 {
-    // TODO: Are we using these?
-    initialization_succeeded = true;
-    init_called_once = false;
+    initialization_succeeded = true;    // If false, the application will quit before showing main window
+    init_called_once = false;           // This helps implement our window becoming visible early
     speed_timer_active = false;
 
     serial_comms_p = nullptr;
@@ -76,11 +75,10 @@ bool MainWindow::initialize_mainwindow() {
 
     db->initContinue();
 
-// Initialize serial port object
 #ifndef SKIP_SERIAL_PORT_INIT
+    // Initialize serial port object
     serial_comms_p = new SerialComms(this, db);
 
-    // TODO: This pointer to database object in serial comms object should not be required
     db->setSerialPtr(serial_comms_p);
 
     if ( !serial_comms_p->openSerialPort() ) {
@@ -212,6 +210,7 @@ void MainWindow::set_dummy_station_data(Ui::stationDialog sd_ui) {
 void MainWindow::showEvent(QShowEvent *event) {
 
     Q_UNUSED(event);
+
     qDebug() << "MainWindow::showEvent(): Override Entered";
     if ( init_called_once == false ) {
         init_called_once = true;

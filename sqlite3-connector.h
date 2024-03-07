@@ -67,6 +67,7 @@ public:
     void dump_local_station_data();
     void dump_local_sysconfig_data();
     void dump_local_contest_data();
+
     int display_message_box(QString text, bool db_init=false);
     enum database_state getDatabaseState(QString tableName);
     QString &getDatabasePath();

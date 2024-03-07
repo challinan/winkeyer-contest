@@ -82,24 +82,40 @@ void SerialComms::close_serial_port() {
 
 void SerialComms::open_winkeyer() {
 
+    connect(this, &SerialComms::serial_rx, this, &SerialComms::reportSerialOpen);
+
     // Winkeyer Wk3 Open Command: 0x00, 0x02
     qDebug() << "SerialComms::open_winkeyer(): Entered";
     write_buffer.append(static_cast<char>(0x0));
     write_buffer.append(static_cast<char>(0x02));
     writeSerialData();
 
-#if 0
-    // TODO: Validate that open succeeded by waiting for the version string
-    uint timeout = 0;
-    while ( version_string == 0 && timeout++ < 0xffffff ) {
-        QTimer wait here
+    // Validate that open succeeded by waiting for open
+    int spincount = 0;
+    while ( !winkeyer_open ) {
+        QCoreApplication::processEvents();
+        if ( spincount++ > 100000 ) {
+            qDebug() << "SerialComms::open_winkeyer(): Timeout waiting for winkeyer version" << "spincount: " << spincount;
+            break;
+        }
     }
-#endif
+    qDebug() << "winkeyer_open(): spincount:" << spincount;
 
     // On successful open, connect signal
     c_statusByteConnx = connect(this, &SerialComms::statusByteReceived, this, &SerialComms::processStatusByte);
     c_speedPotRxConnx = connect(this, &SerialComms::speedPotValueReceived, this, &SerialComms::processSpeedPot);
-    winkeyer_open = true;
+}
+
+void SerialComms::reportSerialOpen(QByteArray &b) {
+    if ( b.size() > 0 ) {
+        char c = b.at(0);
+        qDebug() << "SerialComms::reportSerialOpen(): bytearray size:" << b.size() << "value:" << b.at(0);
+        if ( c == 0x1f) {
+            version_string = QString::number(c);
+            qDebug() << "SerialComms::reportSerialOpen(): Reporting winkeyer open!! - Version:" << version_string;
+            winkeyer_open = true;
+        }
+    }
 }
 
 void SerialComms::setSpeed(int speed) {
@@ -128,9 +144,6 @@ void SerialComms::setupSpeedPotRange(uchar min, uchar range) {
     write_buffer.append(static_cast<char>(range));
     write_buffer.append(static_cast<char>(0));
     writeSerialData();
-
-    // TODO: Validate that open succeeded by waiting for the version string
-    winkeyer_open = true;
 }
 
 void SerialComms::close_winkeyer() {
@@ -200,13 +213,13 @@ void SerialComms::console_data_2_serial_out(QByteArray &b) {
 }
 
 void SerialComms::slot_readyRead() {
-    readserialdata();
+    readSerialData();
 
 #if 0
     pRxThread = new SerialRxCommsThread;
     pRxThread->setSerialCommsPtr(this);
     runRxThread = true;
-    connect(pRxThread, &SerialRxCommsThread::serialRxReady, this, &SerialComms::readserialdata);
+    connect(pRxThread, &SerialRxCommsThread::serialRxReady, this, &SerialComms::readSerialData);
     connect(pRxThread, &SerialRxCommsThread::finished, pRxThread, &QObject::deleteLater);
 
     pRxThread->start();
@@ -224,8 +237,8 @@ Serial Comm Thread {
         else if (WK3:uart_byte_ready) {
             wkbyte = WK3:uart_read();
             if (( wkbyte & 0xc0) == 0xc0 {
-               it’s a status byte. (Host may or may not have asked for it.)
-               process status change, note that it could be a pushbutton change
+               // it’s a status byte. (Host may or may not have asked for it.)
+               // process status change, note that it could be a pushbutton change
            }
            else if ((wkbyte & 0xc0) == 0x80) {
                it’s a speed pot byte (Host may or may not have asked for it.)
@@ -241,7 +254,7 @@ Serial Comm Thread {
 }
 #endif
 
-int SerialComms::readserialdata() {
+int SerialComms::readSerialData() {
 
     int rc = 0;
     int countReady = 0;
@@ -249,24 +262,24 @@ int SerialComms::readserialdata() {
     if ( active_serial_port_p == nullptr )
         return -1;
 
-    // qDebug() << "SerialComms::readserialdata(): Entered - read_buffer size:" << read_buffer.size();
+    // qDebug() << "SerialComms::readSerialData(): Entered - read_buffer size:" << read_buffer.size();
     // scomm_mutex.lock();
 
     while ( (countReady = active_serial_port_p->bytesAvailable()) ) {
         if ( countReady < 0 || countReady > 8 ) {
-            qDebug() << "SerialComms::readserialdata(): ******************* countReady unusual value:" << countReady;
+            qDebug() << "SerialComms::readSerialData(): ******************* countReady unusual value:" << countReady;
             continue;
         }
-        // qDebug() << "SerialComms::readserialdata(): bytesAvailable:" << countReady;
+        // qDebug() << "SerialComms::readSerialData(): bytesAvailable:" << countReady;
         read_buffer.resize(countReady);
         rc = active_serial_port_p->read(read_buffer.data(), countReady < READ_BUFFER_SIZE ? countReady : READ_BUFFER_SIZE-1);
         if ( rc == -1 ) {
-            qDebug() << "SerialComms::readserialdata(): ERROR:" << active_serial_port_p->error();
+            qDebug() << "SerialComms::readSerialData(): ERROR:" << active_serial_port_p->error();
         }
 
         if ( (read_buffer.at(0) & 0xc0) == 0xc0 ) {
             // It’s a status byte. (Host may or may not have asked for it.)
-            // qDebug() << "SerialComms::readserialdata(): Status byte detected";
+            // qDebug() << "SerialComms::readSerialData(): Status byte detected";
             emit statusByteReceived(read_buffer.at(0));
         } else {
             if ( (read_buffer.at(0) & 0xc0) == 0x80) {
@@ -274,7 +287,8 @@ int SerialComms::readserialdata() {
                 emit speedPotValueReceived(read_buffer.at(0) & 0x3f);
             }
         }
-        // qDebug() << "SerialComms::readserialdata(): return value" << rc << "byte count:" << rc << "data:" << read_buffer;
+        // qDebug() << "SerialComms::readSerialData(): return value" << rc << "byte count:" << rc << "data:" << read_buffer;
+        emit serial_rx(read_buffer);
     }
     return rc;
 }
