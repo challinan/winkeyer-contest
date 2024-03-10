@@ -21,6 +21,7 @@
 class StationDataTab;
 class SystemConfigTab;
 class ContestTab;
+class ContestConfigTab;
 
 // The top level container holding the tab Widgets
 class TopLevelTabContainerDialog : public QDialog
@@ -37,44 +38,7 @@ private:
     void save_tabbed_data_to_database();
 
     template <typename T>
-    void saveTabbedDataToLocalMap(T *tabPtr) { // Pointer to our config Dialog Tabs
-
-        // Store away the values from the associated tab's edit boxes
-        // The QLineEdit objects are enumerated in the editBoxes list in the individual classes
-        qDebug() << "saveTabbedDataToLocalMap:" << tabPtr;
-        QListIterator<QLineEdit *> s = tabPtr->dataEditBoxes;
-        while (s.hasNext() ) {
-            QLineEdit *lep_tmp = s.next();
-            QString objname = lep_tmp->objectName();
-            qDebug() << "saveTabbedDataToLocalMap(): objname:" << objname;
-
-            lep_tmp = tabPtr->template findChild<QLineEdit *>(objname);
-            objname.remove("EditBox");
-
-            QString value = lep_tmp->text();
-            tabPtr->setLocalMapValueByKey(objname, value);
-            qDebug() << "TopLevelTabContainerDialog::saveTabbedDataToLocalMap(): objname, lep_tmp->text()"
-                     << objname << lep_tmp->text();
-        }
-
-        QListIterator<QComboBox *> c = tabPtr->comboBoxesList;
-        while ( c.hasNext() ) {
-            QComboBox *cb_tmp = c.next();
-            QString objname = cb_tmp->objectName();
-            qDebug() << "saveTabbedDataToLocalMap(): objname:" << objname;
-
-            cb_tmp = tabPtr->template findChild<QComboBox *>(objname);
-            objname.remove("ComboBox");
-
-            QString value = cb_tmp->currentText();
-            tabPtr->setLocalMapValueByKey(objname, value);
-            qDebug() << "TopLevelTabContainerDialog::saveTabbedDataToLocalMap(): objname, cb_tmp->text()"
-                     << objname << cb_tmp->currentText();
-        }
-};
-
-private:
-    // TODO: Consolidate these into a single generic routine
+    void saveTabbedDataToLocalMap(T *tabPtr);
 
     // Read local database map from DataClass objects into tabbed dialog
     template<typename T>
@@ -83,6 +47,7 @@ private:
 private:
     // QTabWidget holds the stack of tabbed wigets
     QTabWidget *tabWidget;
+
     QDialogButtonBox *buttonBox;
     Sqlite3_connector *db;
     QVBoxLayout *pMainLayout;
@@ -91,11 +56,13 @@ private:
     StationDataTab *pStationDataTab;
     SystemConfigTab *pSysconfigTab;
     ContestTab *pContestTab;
+    ContestConfigTab *pContestConfigTab;
 
     // Pointers to db Classes
     StationData *pStationDataClassPtr;
     SysconfigData *pSysconfigDataClassPtr;
     ContestData *pContestDataClassPtr;
+    ContestConfigData *pContestConfigDataClassPtr;
 
 private slots:
     void user_pressed_save();
@@ -129,6 +96,7 @@ signals:
     friend StationDataTab;
     friend SystemConfigTab;
     friend ContestTab;
+    friend ContestConfigTab;
 };
 
 // **********************  StationDataTab  *************************** //
@@ -171,6 +139,21 @@ class ContestTab : public DataTab
 public:
     explicit ContestTab(Sqlite3_connector *p, QWidget *parent = nullptr);
     ~ContestTab();
+
+    void setLocalMapValueByKey(QString key, QString value);
+
+};
+
+// **********************  ContestConfigTab  *************************** //
+
+// This is the QWidget holding contest configuration data
+class ContestConfigTab : public DataTab
+{
+    Q_OBJECT
+
+public:
+    explicit ContestConfigTab(Sqlite3_connector *p, QWidget *parent = nullptr);
+    ~ContestConfigTab();
 
     void setLocalMapValueByKey(QString key, QString value);
 

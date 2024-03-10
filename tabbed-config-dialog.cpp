@@ -14,15 +14,18 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     pStationDataTab = new StationDataTab(db);
     pSysconfigTab = new SystemConfigTab(db);
     pContestTab = new ContestTab(db);
+    pContestConfigTab = new ContestConfigTab(db);
 
     // Get pointers to Database Sub-classes - yup, this is super ugly
     pStationDataClassPtr = db->getStationDbClassPtr();
     pSysconfigDataClassPtr = db->getSysconfigDbClassPtr();
     pContestDataClassPtr = db->getContestDbClassPtr();
+    pContestConfigDataClassPtr = db->getContestConfigDbClassPtr();
 
     tabWidget->addTab(pStationDataTab, "StationData");
     tabWidget->addTab(pSysconfigTab, "System Config");
-    tabWidget->addTab(pContestTab, "Contest Config");
+    tabWidget->addTab(pContestTab, "Contest Data");
+    tabWidget->addTab(pContestConfigTab, "Contest Config");
     qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Tabs Added";
 
     // Create two standard push buttons, and connect each of them to the appropriate slots in the dialog
@@ -62,6 +65,8 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
                 get_local_data_into_dialog_T(pSysconfigDataClassPtr);
             if ( item == "contest_data" )
                 get_local_data_into_dialog_T(pContestDataClassPtr);
+            if ( item == "contest_config_data" )
+                get_local_data_into_dialog_T(pContestConfigDataClassPtr);
         } else {
             qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Skipping database read into tabs";
         }
@@ -150,23 +155,71 @@ void TopLevelTabContainerDialog::connectStationTabTextChangedSignals(bool doConn
 #endif
 }
 
+// Avoid link errors by predefining all instances of this template function
+// template void TopLevelTabContainerDialog::saveTabbedDataToLocalMap(StationDataTab *);
+// template void TopLevelTabContainerDialog::saveTabbedDataToLocalMap(SystemConfigTab *);
+// template void TopLevelTabContainerDialog::saveTabbedDataToLocalMap(ContestTab*);
+
+template <typename T>
+void TopLevelTabContainerDialog::saveTabbedDataToLocalMap(T *tabPtr) { // Pointer to our config Dialog Tabs
+
+    // Store away the values from the associated tab's edit boxes
+    // The QLineEdit objects are enumerated in the editBoxes list in the individual classes
+    qDebug() << "saveTabbedDataToLocalMap:" << tabPtr;
+    QListIterator<QLineEdit *> s = tabPtr->dataEditBoxes;
+    while (s.hasNext() ) {
+        QLineEdit *lep_tmp = s.next();
+        QString objname = lep_tmp->objectName();
+        qDebug() << "saveTabbedDataToLocalMap(): objname:" << objname;
+
+        lep_tmp = tabPtr->template findChild<QLineEdit *>(objname);
+        objname.remove("EditBox");
+
+        QString value = lep_tmp->text();
+        tabPtr->setLocalMapValueByKey(objname, value);
+        qDebug() << "TopLevelTabContainerDialog::saveTabbedDataToLocalMap(): objname, lep_tmp->text()"
+                 << objname << lep_tmp->text();
+    }
+
+    QListIterator<QComboBox *> c = tabPtr->comboBoxesList;
+    while ( c.hasNext() ) {
+        QComboBox *cb_tmp = c.next();
+        QString objname = cb_tmp->objectName();
+        qDebug() << "saveTabbedDataToLocalMap(): objname:" << objname;
+
+        cb_tmp = tabPtr->template findChild<QComboBox *>(objname);
+        objname.remove("ComboBox");
+
+        QString value = cb_tmp->currentText();
+        tabPtr->setLocalMapValueByKey(objname, value);
+        qDebug() << "TopLevelTabContainerDialog::saveTabbedDataToLocalMap(): objname, cb_tmp->text()"
+                 << objname << cb_tmp->currentText();
+    }
+};
+
 void TopLevelTabContainerDialog::user_pressed_save() {
 
     qDebug() << "TopLevelTabContainerDialog::user_pressed_save(): Entered";
     pStationDataClassPtr = db->getStationDbClassPtr();
     pSysconfigDataClassPtr = db->getSysconfigDbClassPtr();
     pContestDataClassPtr = db->getContestDbClassPtr();
+    pContestConfigDataClassPtr = db->getContestConfigDbClassPtr();
 
+    // TODO There must be a better way to do this
     saveTabbedDataToLocalMap<StationDataTab>(pStationDataTab);
     db->dump_local_station_data();
     saveTabbedDataToLocalMap<SystemConfigTab>(pSysconfigTab);
     db->dump_local_sysconfig_data();
     saveTabbedDataToLocalMap<ContestTab>(pContestTab);
     db->dump_local_contest_data();
+    saveTabbedDataToLocalMap<ContestConfigTab>(pContestConfigTab);
+    db->dump_local_contest_config_data();
+
 
     db->syncGeneric_write_to_database_T(pStationDataClassPtr);
     db->syncGeneric_write_to_database_T(pSysconfigDataClassPtr);
     db->syncGeneric_write_to_database_T(pContestDataClassPtr);
+    db->syncGeneric_write_to_database_T(pContestConfigDataClassPtr);
 
     // Disconnect all the QLineEdit signals
     connectStationTabTextChangedSignals(false);
@@ -280,7 +333,7 @@ void StationDataTab::setLocalMapValueByKey(QString key, QString value) {
 }
 
 StationDataTab::~StationDataTab() {
-    // Delete code in base class
+    // Delete code found in base class
 }
 
 // ******************  SystemConfigTab  **************************** //
@@ -371,7 +424,7 @@ void SystemConfigTab::setLocalMapValueByKey(QString key, QString value) {
 }
 
 SystemConfigTab::~SystemConfigTab() {
-    // Delete code in base class
+    // Delete code found in base class
 }
 
 // ******************  ContestTab  **************************** //
@@ -425,5 +478,60 @@ void ContestTab::setLocalMapValueByKey(QString key, QString value) {
 }
 
 ContestTab::~ContestTab() {
-    // Delete code in base class
+    // Delete code found in base class
 }
+
+// ******************  ContestConfigTab  **************************** //
+ContestConfigTab::ContestConfigTab(Sqlite3_connector *p, QWidget *parent)
+    : DataTab(p, parent)
+{
+    db = p;     // Pointer to sqlite3_connector database engine
+
+    ContestConfigData *pContestConfigDataClassPtr = db->getContestConfigDbClassPtr();
+
+    // Get pointer to Contest Data db fields
+    QMap<int, dbfields_values_t> db_fields = pContestConfigDataClassPtr->getDbFields();
+
+    // TOOO: Get these from the new table
+
+    formLayout = new QFormLayout(this);
+
+    // {"sequence", "rst"}
+
+    QMapIterator<int, dbfields_values_t> e(db_fields);
+    // First entry is the tablename
+    if (e.hasNext() ) {
+        // Skip over table name - we don't need it here
+        e.next();
+    } else {
+        qDebug() << "ContestConfigTab::ContestConfigTab(): Failed - expected more rows in db_fields";
+        return;
+    }
+
+
+    while (e.hasNext() ) {
+        QString key = e.next().value().fieldname;
+
+        // Create an appropriate QLineEdit, put it in the List, give it an objname, and add it to layout
+        QLineEdit *qle = new QLineEdit;
+        dataEditBoxes.append(qle); // Add this one to the QList<QLineEdit> list
+        QString objname = key;
+        objname.append("EditBox");
+        qle->setObjectName(objname);
+
+        QString editBoxLabel = e.value().field_label;
+        formLayout->addRow(editBoxLabel, qle);
+        qDebug() << "ContestConfigTab::ContestConfigTab(): EditBox Object Name:" << objname << "key =" << key << "editBoxLabel = " << editBoxLabel;
+    }
+    setLayout(formLayout);
+}
+
+void ContestConfigTab::setLocalMapValueByKey(QString key, QString value) {
+    QMap<QString, QString> &p = db->getContestConfigDbClassPtr()->getLocalDataMap();
+    p.insert(key, value);
+}
+
+ContestConfigTab::~ContestConfigTab() {
+    // Delete code found in base class
+}
+

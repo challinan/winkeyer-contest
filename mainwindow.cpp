@@ -1,5 +1,7 @@
+#include <QPainter>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "ledwidget.h"
 
 // #define SKIP_SERIAL_PORT_INIT
 // #define DBCONFIG_DEBUG  // When enabled, erases the db file on every run
@@ -16,8 +18,9 @@ void MainWindow::waitForVisible() {
     // qDebug() << "MainWindow::waitForVisible(void): count =" << count;
     if ( !initialize_mainwindow() ) {
         qDebug() << "MainWindow::waitForVisible(): Exiting app:" << count;
-        QCoreApplication::exit(-3);
+        QApplication::exit(-3);
     }
+    ui->virtualStatusLed->update();
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -48,7 +51,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->cwTextEdit->setFocus();
 
+    ui->virtualStatusLed->update();
     qDebug() << "MainWindow::MainWindow(): Ctor Exiting complete" << r;
+}
+
+void MainWindow::setSerialStatusLedColor(QColor color) {
+    qDebug() << "MainWindow::setSerialStatusLedColor(): color:" << color;
 }
 
 bool MainWindow::initSucceeded() {
@@ -83,8 +91,11 @@ bool MainWindow::initialize_mainwindow() {
 
     if ( !serial_comms_p->openSerialPort() ) {
         qDebug() << "MainWindow::initialize_mainwindow(): Open Serial Port failed";
+        ui->virtualStatusLed->setLedColor(Qt::red);
     } else {
         connect(serial_comms_p, &SerialComms::on_serial_port_detected, this, &MainWindow::serial_port_detected, Qt::QueuedConnection);
+        ui->virtualStatusLed->setLedColor(Qt::green);
+        ui->virtualStatusLed->update();
 
         // Set min/max ranges for our speed spinBox and Winkeyer Speed Pot
         ui->speedSpinBox->setMinimum(SPEEDPOT_MIN);
@@ -94,15 +105,18 @@ bool MainWindow::initialize_mainwindow() {
         // Set our initial keyer speed to 22 WPM
         ui->speedSpinBox->setValue(22);
         serial_comms_p->setSpeed(22);
+
+        // Transmit window also needs to have an initial speed value for delay calculations
+        ui->cwTextEdit->reportTxSpeed(22);
+
         connect(ui->speedSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::speedSpinBox_valueChanged);
     }
 #endif
 
-    // CW Transmit window is now being created in the main ui
-    // pTxWindow = new TransmitWindow(this);
+    // CW Transmit window is now being created in the main ui form
     // Connect signals/slots
     connect(ui->cwTextEdit->tx_thread_p, &CWTX_Thread::sendTxChar, serial_comms_p, &SerialComms::processTxChar, Qt::QueuedConnection);
-    connect(serial_comms_p, &SerialComms::TxCharComplete,  ui->cwTextEdit->tx_thread_p, &CWTX_Thread::serialPortTxCharComplete, Qt::QueuedConnection);
+    connect(serial_comms_p, &SerialComms::TxCharComplete,  ui->cwTextEdit->tx_thread_p, &CWTX_Thread::serialPortTxCharComplete, Qt::DirectConnection);
 
     // TODO How, where and when do I kill this timer?
     blinkTimer = new QTimer(this);
@@ -242,4 +256,11 @@ void MainWindow::UpdateSpeed() {
     qDebug() << "MainWindow::UpdateSpeed(): Timer timedout - slot entered - speed now" << speed;
 
     serial_comms_p->setSpeed(speed);
+    pTxWindow->reportTxSpeed(speed);
 }
+
+void MainWindow::on_comboBox_currentTextChanged(const QString &arg1)
+{
+    qDebug() << "MainWindow::on_comboBox_currentTextChanged(): Entered:" << arg1;
+}
+

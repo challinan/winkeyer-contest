@@ -9,6 +9,7 @@
 #include "sqlite3-connector.h"
 #include "tabbed-config-dialog.h"
 #include "transmitwindow.h"
+#include "ledwidget.h"
 
 #include <QTextCursor>
 #include <QPushButton>
@@ -26,6 +27,8 @@ QT_END_NAMESPACE
 
 class TransmitWindow;
 
+#include <QWidget>
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -36,6 +39,7 @@ public:
 
     bool initialize_mainwindow();
     bool initSucceeded();
+    void setSerialStatusLedColor(QColor color);
 
 private:
     void set_dummy_station_data(Ui::stationDialog sd_ui);
@@ -69,6 +73,8 @@ private slots:
     void UpdateSpeed();
 
     void speedSpinBox_valueChanged(int arg1);
+
+    void on_comboBox_currentTextChanged(const QString &arg1);
 
 signals:
     void waitVisibleSignal();

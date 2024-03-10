@@ -1,7 +1,7 @@
 #ifndef SQLITE3_CONNECTOR_H
 #define SQLITE3_CONNECTOR_H
 
-#include <QCoreApplication>
+#include <QApplication>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
@@ -57,6 +57,7 @@ public:
     StationData *getStationDbClassPtr() { return pStationData; }
     SysconfigData *getSysconfigDbClassPtr() { return pSysconfigData; }
     ContestData *getContestDbClassPtr() { return pContestData; }
+    ContestConfigData *getContestConfigDbClassPtr() { return pContestConfigData; }
 
     // void registerTable(const QMap<int, QString> &r);
     template <typename T>
@@ -67,6 +68,7 @@ public:
     void dump_local_station_data();
     void dump_local_sysconfig_data();
     void dump_local_contest_data();
+    void dump_local_contest_config_data();
 
     int display_message_box(QString text, bool db_init=false);
     enum database_state getDatabaseState(QString tableName);
@@ -84,6 +86,8 @@ private:
     StationData *pStationData;
     SysconfigData *pSysconfigData;
     ContestData *pContestData;
+    ContestConfigData *pContestConfigData;
+
     QList<QMap<int, dbfields_values_t>> table_list;
 
     // Full path to database on local storage (hard drive, etc)

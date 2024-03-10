@@ -29,6 +29,7 @@ void Sqlite3_connector::initContinue() {
     pStationData = new StationData(this);
     pSysconfigData = new SysconfigData(this);
     pContestData = new ContestData(this);
+    pContestConfigData = new ContestConfigData(this);
 
     checkIfDatabaseTablesAreEmpty();
 }
@@ -154,6 +155,7 @@ bool Sqlite3_connector::checkIfDatabaseTablesAreEmpty() {
 template bool Sqlite3_connector::syncGeneric_write_to_database_T(StationData *pDbClass);
 template bool Sqlite3_connector::syncGeneric_write_to_database_T(SysconfigData *pDbClass);
 template bool Sqlite3_connector::syncGeneric_write_to_database_T(ContestData *pDbClass);
+template bool Sqlite3_connector::syncGeneric_write_to_database_T(ContestConfigData *pDbClass);
 
 template <typename T>
 bool Sqlite3_connector::syncGeneric_write_to_database_T(T *pDbClass) {
@@ -249,6 +251,7 @@ bool Sqlite3_connector::syncGeneric_write_to_database_T(T *pDbClass) {
 template bool Sqlite3_connector::SyncDataTableRead_T<StationData>(StationData *);
 template bool Sqlite3_connector::SyncDataTableRead_T<SysconfigData>(SysconfigData *);
 template bool Sqlite3_connector::SyncDataTableRead_T<ContestData>(ContestData *);
+template bool Sqlite3_connector::SyncDataTableRead_T<ContestConfigData>(ContestConfigData *);
 
 template <typename T>
 bool Sqlite3_connector::SyncDataTableRead_T(T *pDataTableClass) {
@@ -470,6 +473,17 @@ void Sqlite3_connector::dump_local_contest_data() {
     }
 }
 
+void Sqlite3_connector::dump_local_contest_config_data() {
+
+    qDebug() << "Dumping local contest config data table";
+    QMap<QString, QString> &rMap = pContestConfigData->getLocalDataMap();
+    QMapIterator<QString, QString> m(rMap);
+    while (m.hasNext() ) {
+        m.next();
+        qDebug() << m.key() << ":" << m.value();
+    }
+}
+
 int Sqlite3_connector::display_message_box(QString text, bool db_init) {
 
     qDebug() << "Sqlite3_connector::display_message_box(): Entered with db_init =" << db_init << "about to display message box********";
@@ -563,6 +577,7 @@ void Sqlite3_connector::setSerialPtr(SerialComms *p) {
 template void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, StationData *p);
 template void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, SysconfigData *p);
 template void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, ContestData *p);
+template void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, ContestConfigData *p);
 
 template <typename T>
 void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, T *p) {

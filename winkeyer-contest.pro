@@ -12,6 +12,7 @@ QMAKE_CXXFLAGS += -O0
 
 SOURCES += \
     database-tables-base.cpp \
+    ledwidget.cpp \
     main.cpp \
     mainwindow.cpp \
     serialcomms.cpp \
@@ -21,10 +22,12 @@ SOURCES += \
 
 HEADERS += \
     database-tables-base.h \
+    ledwidget.h \
     mainwindow.h \
     serialcomms.h \
     sqlite3-connector.h \
     transmitwindow.h \
+    morse_table.h \
     tabbed-config-dialog.h
 
 FORMS += \

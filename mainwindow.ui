@@ -14,7 +14,7 @@
    <string>Winkeyer Contester</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QLabel" name="label">
+   <widget class="QLabel" name="windowTitle">
     <property name="geometry">
      <rect>
       <x>310</x>
@@ -61,7 +61,7 @@
      <string>Exit</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_2">
+   <widget class="QLabel" name="txWindowLabel">
     <property name="geometry">
      <rect>
       <x>140</x>
@@ -84,7 +84,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QLabel" name="label_3">
+   <widget class="QLabel" name="speedSpinboxLabel">
     <property name="geometry">
      <rect>
       <x>15</x>
@@ -105,6 +105,55 @@
       <width>571</width>
       <height>74</height>
      </rect>
+    </property>
+   </widget>
+   <widget class="LedWidget" name="virtualStatusLed">
+    <property name="geometry">
+     <rect>
+      <x>810</x>
+      <y>10</y>
+      <width>30</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>LED</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>690</x>
+      <y>10</y>
+      <width>111</width>
+      <height>10</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Serial Port Status</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBox">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>30</y>
+      <width>201</width>
+      <height>32</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>10</y>
+      <width>58</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Contest</string>
     </property>
    </widget>
   </widget>
@@ -131,6 +180,11 @@
    <class>TransmitWindow</class>
    <extends>QTextEdit</extends>
    <header>transmitwindow.h</header>
+  </customwidget>
+  <customwidget>
+   <class>LedWidget</class>
+   <extends>QLabel</extends>
+   <header>ledwidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

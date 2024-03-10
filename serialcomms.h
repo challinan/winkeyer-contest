@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QString>
 #include <QDebug>
-#include <QThread>
 #include <QList>
 #include <QMutex>
 #include <QTimer>
@@ -21,7 +20,6 @@
 class NetworkComms;
 class SerialComms;
 class Sqlite3_connector;
-class SerialRxCommsThread;
 
 #define WINKEYER_XOFF       0x01
 #define WINKEYER_BREAKIN    0x02
@@ -47,19 +45,18 @@ public:
     void close_serial_port();
     void display_all_bytes(QByteArray &r);
     void setSpeed(int);
+    int getSpeed();
     void setupSpeedPotRange(uchar min, uchar range);
     void clearWinkeyerBuffer();
-    void transmitSimulator(uchar c);
 
 public slots:
-    void console_data_2_serial_out(QByteArray &b);
     void slot_readyRead();
     void processStatusByte(uchar status);
     void processSpeedPot(uchar speed);
     void slotSendWinkeyerSpeed();
     void processTxChar(char c);
     void simTimerTimeout();
-    void reportSerialOpen(QByteArray &b);
+    void processRxMessage(QByteArray &b);
 
 private:
     void open_winkeyer();
@@ -73,7 +70,6 @@ private:
     // char read_buffer[MAX_RX_BUFFER_SIZE];
     QByteArray write_buffer;
     QSerialPort *active_serial_port_p;
-    SerialRxCommsThread *pRxThread;
     QMetaObject::Connection c_statusByteConnx;
     QMetaObject::Connection c_speedPotRxConnx;
     QMetaObject::Connection c_speedpot_timerConnx;
@@ -94,7 +90,6 @@ private:
 public:
     QByteArray read_buffer;
     QMutex scomm_mutex;
-    bool runRxThread;
 
 signals:
     void on_serial_port_detected(QString &s);
@@ -104,21 +99,6 @@ signals:
     void speedPotValueReceived(uchar speed);
     void TxCharComplete();
 
-};
-
-class SerialRxCommsThread : public QThread
-{
-    Q_OBJECT
-
-public:
-    void run() override;
-    void setSerialCommsPtr(SerialComms *p);
-
-private:
-    SerialComms *pSerialComm;
-
-signals:
-    void serialRxReady(int i);
 };
 
 #endif // SERIALCOMMS_H

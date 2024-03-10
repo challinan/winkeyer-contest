@@ -19,7 +19,7 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
-#define CBUFF_SIZE 12
+#define CBUFF_SIZE 32
 
 class CWTX_Thread;
 class MainWindow;
@@ -27,22 +27,27 @@ class MainWindow;
 struct transmitChar {
     char c; // The character typed and reported in keyPressEvent
     int position;   // Returns the absolute position of the cursor within the document
+    int block;
     bool complete;
 };
 
 class CBuffer {
 public:
     CBuffer();
+    ~CBuffer();
     bool put(char c);
     char get();
     void clear();
     bool isEmpty();
     bool isFull();
+    bool setSize(int size);
     bool deleteLast();
     int getNumCharsQueued();
 
 private:
-    char cbuff[CBUFF_SIZE];
+    // char cbuff[CBUFF_SIZE];
+    char *cbuff;
+
     // We write to "tail" and read from "head"
     int size;
     int head;
@@ -62,43 +67,42 @@ private:
 
 public slots:
     void processTextChanged();
-    void markCharAsSent();
+    void strikeoutCharAsSent();
     void CursorPositionChangedSlot();
+    void reportTxSpeed(int speed);
 
 protected:
      void keyPressEvent(QKeyEvent *event) override;
-     void mousePressEvent(QMouseEvent *event) override;
      void keyReleaseEvent(QKeyEvent *event) override;
 
  public:
      CWTX_Thread *tx_thread_p;
-     struct transmitChar txChar;
+     struct transmitChar txCharStamp;
 
-private:
+ private:
      int tx_position;
-     int last_size;
+     int highlight_position;
      bool is_transmitting;
      QTextCursor cursor;
      QTextCharFormat strikethrough_f;
      QTextCharFormat normal_f;
-
-     struct {
-         int position;  // Transmit character position
-         int block;  // Transmit block
-     } tpos;
+     int dit_timing_factor;
+     int txSpeed;
 
      CBuffer ccbuf;
+     CBuffer txWindowBuffer;
 
      // For debug only
      int key_down_count;
-     QMutex highlightTextMutex;
+     int key_release_count;
+     int strikeout_count;
 
-signals:
+ signals:
      void startTx();
 
 };
 
-// *********   QThread Class *****************
+// *********   CWTX_Thread Class *****************
 
 class CWTX_Thread : public QThread
 {
@@ -110,20 +114,24 @@ public:
     CBuffer *cbuf_p;
 
 private:
-    int calculate_delay(char c);
+    int calculateDelay(char c);
 
 private:
     bool transmitNow;
     bool paused;
     TransmitWindow *txwinObj_p;
-    int dit_timing_factor;
     bool txAvailable;
     char currentTxChar;
+    bool strikeoutTimerRunning;
+    int ms_delay;
+    QTimer *pStrikeoutTimer;
+    QMetaObject::Connection c_strikeout_timerConnx;
 
 public slots:
     void sendToSerialPortTx();
     void pauseTx(bool pause);
     void serialPortTxCharComplete();
+    void strikeoutTimerTimeout();
 
 signals:
     void deQueueChar();
