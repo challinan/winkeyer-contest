@@ -73,6 +73,8 @@ bool MainWindow::initialize_mainwindow() {
     qDebug() << "MainWindow::initialize_mainwindow(): DATABASE FILE REMOVED";
 #endif
 
+    pCountyList = new CountyList;
+
     // Initialize and sync internal and external station database
     db = new Sqlite3_connector;
 

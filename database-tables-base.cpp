@@ -200,3 +200,33 @@ const QMap<int, dbfields_values_t> &ContestData::getDbFields() {
 ContestData::~ContestData() {
 
 }
+
+// ****************** class ContestConfigData ********************* //
+
+ContestConfigData::ContestConfigData(Sqlite3_connector *p)
+//    : public DataBaseTableBaseClass
+{
+    db = p;
+    db->registerTable(new_db_fields, this);
+
+    database_state db_state = db->getDatabaseState("contest_config_data");
+    qDebug() << "ContestConfigData::ContestConfigData(): DB STATE:" << db_state;
+
+    // Check to see if tables already exist
+    if ( db_state != DB_HAS_TABLE_DATA ) {
+        createDbTable();
+    } else {
+        qDebug() << "ContestConfigData::ContestConfigData(): skipping createDbTable() - they already exist" << this;
+        // Read data from external database into local data map
+        readDbValuesIntoLocalMap_T(this);
+    }
+}
+
+const QMap<int, dbfields_values_t> &ContestConfigData::getDbFields() {
+    qDebug() << "ContestData::getDbFields(): Entered";
+    return new_db_fields;
+}
+
+ContestConfigData::~ContestConfigData() {
+
+}

@@ -124,6 +124,33 @@ public:
 
 private:
     QMap<QString, QString> local_data_map;
+    // Sqlite3_connector *pContestData;
+
+};
+
+// ************************************ class ContestConfigData ********************* //
+class ContestConfigData : public DataBaseTableBaseClass {
+
+    Q_OBJECT
+
+public:
+    ContestConfigData(Sqlite3_connector *p);
+    ~ContestConfigData();
+
+    const QMap<int, dbfields_values_t> &getDbFields();
+    QMap<QString, QString> &getLocalDataMap() { return local_data_map; }
+
+    // This defines the system configuration database table layout - the one source of truth
+    QMap<int, dbfields_values_t> new_db_fields {
+        {0, {"contest_config_data", "", "Table Name"}},
+        {1, {"exchange", "", "Exchange"}},
+        {2, {"section", "", "Section"}},
+        {3, {"sent", "", "RST Sent"}},
+        {4, {"rcvd", "", "RST Rcvd"}}
+    };
+
+private:
+    QMap<QString, QString> local_data_map;
     Sqlite3_connector *pContestData;
 
 };

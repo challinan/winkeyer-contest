@@ -10,6 +10,7 @@
 #include "tabbed-config-dialog.h"
 #include "transmitwindow.h"
 #include "ledwidget.h"
+#include "county_list.h"
 
 #include <QTextCursor>
 #include <QPushButton>
@@ -58,6 +59,7 @@ private:
     QTimer *speed_spinbox_timer;
     bool speed_timer_active;
     TransmitWindow *pTxWindow;
+    CountyList *pCountyList;
 
 protected:
     void showEvent(QShowEvent *event) override;

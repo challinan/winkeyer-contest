@@ -18,6 +18,7 @@ SOURCES += \
     serialcomms.cpp \
     sqlite3-connector.cpp \
     transmitwindow.cpp \
+    county_list.cpp \
     tabbed-config-dialog.cpp
 
 HEADERS += \
@@ -28,6 +29,7 @@ HEADERS += \
     sqlite3-connector.h \
     transmitwindow.h \
     morse_table.h \
+    county_list.h \
     tabbed-config-dialog.h
 
 FORMS += \
