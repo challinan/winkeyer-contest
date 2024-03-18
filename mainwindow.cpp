@@ -3,6 +3,8 @@
 #include "ui_mainwindow.h"
 #include "ledwidget.h"
 
+#include <QPointF>
+
 // #define SKIP_SERIAL_PORT_INIT
 // #define DBCONFIG_DEBUG  // When enabled, erases the db file on every run
 
@@ -29,6 +31,7 @@ MainWindow::MainWindow(QWidget *parent)
     initialization_succeeded = true;    // If false, the application will quit before showing main window
     init_called_once = false;           // This helps implement our window becoming visible early
     speed_timer_active = false;
+    allow_screen_moves = false;
 
     serial_comms_p = nullptr;
 
@@ -37,6 +40,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(this, &MainWindow::waitVisibleSignal, this, &MainWindow::waitForVisible, Qt::QueuedConnection);
     connect(ui->configPushButton, &QPushButton::clicked, this, &MainWindow::launchConfigDialog, Qt::QueuedConnection);
     // ui->CwTx_TextEdit->setPlaceholderText("This one will be replaced");
+    ui->callSignLineEdit->installEventFilter(this);
+    ui->callSignLineEdit->setMouseTracking(false);
+    call_sign_box_pos = ui->callSignLineEdit->geometry();
 
     // Entry to main event loop starts when this constructor returns
     QRect r;
@@ -115,6 +121,29 @@ bool MainWindow::initialize_mainwindow() {
     }
 #endif
 
+    // Initialize contest configuration and Populate the contest dropdown with the contest names
+    pContestConfiguration = new ContestConfiguration(db);
+    QListIterator<struct cabrillo_contest_names_t> m(pContestConfiguration->cabrillo_contest_data);
+    while ( m.hasNext() ) {
+        QString contestname = m.next().cabrillo_name;
+        ui->contestComboBox->addItem(contestname);
+    }
+
+    createFunctionKeys(pContestConfiguration->getRunMode());
+    switch (pContestConfiguration->getRunMode()) {
+
+        case RUN_MODE:
+            ui->runRadioButton->setChecked(true);
+            ui->snpRadioButton->setChecked(false);
+            break;
+        case SNP_MODE:
+            ui->runRadioButton->setChecked(false);
+            ui->snpRadioButton->setChecked(true);
+            break;
+        case UNKNOWN_MODE:
+            break;
+        }
+
     // CW Transmit window is now being created in the main ui form
     // Connect signals/slots
     connect(ui->cwTextEdit->tx_thread_p, &CWTX_Thread::sendTxChar, serial_comms_p, &SerialComms::processTxChar, Qt::QueuedConnection);
@@ -126,6 +155,10 @@ bool MainWindow::initialize_mainwindow() {
     blinkTimer->start(350);
 
     return true;
+}
+
+void MainWindow::setupContextEditBoxes() {
+
 }
 
 void MainWindow::launchConfigDialog() {
@@ -164,9 +197,19 @@ MainWindow::~MainWindow()
 {
     qDebug() << "MainWindow::~MainWindow(): dtor entered";
     // delete pTxWindow;
+    delete pContestConfiguration;
 #ifndef SKIP_SERIAL_PORT_INIT
    delete serial_comms_p;
 #endif
+   // Delete the function key buttons
+
+   QListIterator<QPushButton *> i(function_key_buttons);
+   while ( i.hasNext() ) {
+       QPushButton *p = i.next();
+       // qDebug() << "MainWindow::~MainWindow(): deleting:" << p->objectName();
+       delete p;
+   }
+
    delete ui;
    disconnect(c_invoke_config_dialog);
    delete db;
@@ -266,3 +309,143 @@ void MainWindow::on_comboBox_currentTextChanged(const QString &arg1)
     qDebug() << "MainWindow::on_comboBox_currentTextChanged(): Entered:" << arg1;
 }
 
+bool MainWindow::eventFilter(QObject *sender, QEvent *event)
+{
+    // This piece of code allows me to move the edit box where I want it with the mouse
+    if (sender == ui->callSignLineEdit) {
+        if(event->type()== QEvent::MouseMove && allow_screen_moves ) {
+            // width = 141, height = 31
+            QMouseEvent *m_event = (QMouseEvent*)(event);
+            QPointF mouse_pos = m_event->position();
+            call_sign_box_pos.setX(call_sign_box_pos.x()+mouse_pos.x());
+            call_sign_box_pos.setY(call_sign_box_pos.y()+mouse_pos.y());
+            call_sign_box_pos.setWidth(141);
+            call_sign_box_pos.setHeight(31);
+            ui->callSignLineEdit->setGeometry(call_sign_box_pos);
+            ui->callSignLineEdit->show();
+            qDebug() << "MainWindow::eventFilter(): position:" << m_event->position() << "call_sign_box_pos:" << call_sign_box_pos;
+        }
+    }
+    return QWidget::eventFilter(sender, event);
+}
+
+void MainWindow::on_moveCheckBox_stateChanged(int arg1)
+{
+    Q_UNUSED(arg1);
+    allow_screen_moves = !allow_screen_moves;
+}
+
+
+void MainWindow::on_contestComboBox_activated(int index)
+{
+    // Configure the main window for the contest chosen by the operator
+    qDebug() << "MainWindow::on_contestComboBox_activated():" << ui->contestComboBox->currentText();
+}
+
+void MainWindow::createFunctionKeys(state_e mode) {
+
+#define SPACE_BETWEEN_CELLS 10
+#define FKEYS_PER_ROW 6
+
+    QList<struct func_key_t> &pFKeys = pContestConfiguration->cwFuncKeys;
+    QList<struct func_key_t> modeList;      // Get only the labels, etc for our current mode
+
+    QListIterator<struct func_key_t> m(pFKeys);
+    while ( m.hasNext() ) {
+        struct func_key_t t = m.next();
+        if ( t.run_state == mode )
+            modeList.append(t);
+    }
+
+    // Assumption is there are 12 function keys, 6 on each row, like n1 mm
+    QRect r1 = ui->callSignLineEdit->geometry();
+    QRect mainWinGeometery = this->geometry();
+    int total_window_width = mainWinGeometery.width();
+    int available_width = total_window_width - (SPACE_BETWEEN_CELLS * (FKEYS_PER_ROW + 1)); // Seven spaces for 6 buttons
+
+    // Make room for 6 boxes across the width
+    int button_width = available_width / FKEYS_PER_ROW;
+    int left_edge_reference = r1.x();
+
+    // TODO this is duplicate code - see next for loop
+    // Place first row of buttons
+    int i;
+    for ( i=0; i<6; i++) {
+        QPushButton *p = new QPushButton(this);
+        p->setObjectName(modeList.at(i).functionKey);
+
+        // Calcaulate where it will be place in our main window
+        QRect r;
+        r.setX( (left_edge_reference  + ((SPACE_BETWEEN_CELLS + button_width) * i)) );
+        r.setY(r1.y() + 50);
+        r.setWidth(button_width);
+        r.setHeight(r1.height());
+        p->setGeometry(r);
+
+        QString button_label = modeList.at(i).functionKey;
+        button_label.append(" " + modeList.at(i).label);
+        p->setText(button_label);
+        p->show();
+        function_key_buttons.append(p);
+    }
+
+    // Place second row of buttons
+    for ( ; i<12; i++) {
+        QPushButton *p = new QPushButton(this);
+        p->setObjectName(modeList.at(i).functionKey);
+
+        // Calcaulate where it will be place in our main window
+        QRect r;
+        r.setX( (left_edge_reference  + ((SPACE_BETWEEN_CELLS + button_width) * (i-6))) );
+        r.setY(r1.y() + 80);
+        r.setWidth(button_width);
+        r.setHeight(r1.height());
+        p->setGeometry(r);
+
+        QString button_label = modeList.at(i).functionKey;
+        button_label.append(" " + modeList.at(i).label);
+        p->setText(button_label);
+        p->show();
+        function_key_buttons.append(p);
+    }
+}
+
+void MainWindow::on_runRadioButton_toggled(bool checked) {
+
+    if ( checked ) {
+        pContestConfiguration->setRunMode(RUN_MODE);
+        ui->snpRadioButton->setChecked(false);
+        resetFunctionButtonLabels(RUN_MODE);
+    }
+}
+
+
+void MainWindow::on_snpRadioButton_toggled(bool checked) {
+
+    if ( checked ) {
+        pContestConfiguration->setRunMode(SNP_MODE);
+        ui->runRadioButton->setChecked(false);
+        resetFunctionButtonLabels(SNP_MODE);
+    }
+}
+
+void MainWindow::resetFunctionButtonLabels(state_e mode) {
+
+    // Set the appropriate button label for the chosen operating mode, RUN or S&P
+    QList<struct func_key_t> &pFKeys = pContestConfiguration->cwFuncKeys;
+    QList<struct func_key_t> modeList;      // Get only the labels, etc for our current mode
+
+    QListIterator<struct func_key_t> m(pFKeys);
+    while ( m.hasNext() ) {
+        struct func_key_t t = m.next();
+        if ( t.run_state == mode )
+            modeList.append(t);
+    }
+
+    for ( int i=0; i<12; i++) {
+        QString button_label = modeList.at(i).functionKey;
+        button_label.append(" " + modeList.at(i).label);
+        function_key_buttons.at(i)->setText(button_label);
+        function_key_buttons.at(i)->show();
+    }
+}

@@ -59,7 +59,6 @@ public:
     ContestData *getContestDbClassPtr() { return pContestData; }
     ContestConfigData *getContestConfigDbClassPtr() { return pContestConfigData; }
 
-    // void registerTable(const QMap<int, QString> &r);
     template <typename T>
     void registerTable(const  QMap<int, dbfields_values_t> &r, T *p);
     inline QList<QMap<int, dbfields_values_t>> &getTableList() {return table_list; };
@@ -73,13 +72,13 @@ public:
     int display_message_box(QString text, bool db_init=false);
     enum database_state getDatabaseState(QString tableName);
     QString &getDatabasePath();
+    QString createDatabaseFullPath();
 
 private:
     int  getRowCount(QString table);
     bool dropStationTable();
 
     // Construct the path name to our external database on local storate (hard drive, etc)
-    QString createDatabaseFullPath();
     bool validateDatabasePath();
 
 private:

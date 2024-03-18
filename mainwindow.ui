@@ -133,7 +133,7 @@
      <string>Serial Port Status</string>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBox">
+   <widget class="QComboBox" name="contestComboBox">
     <property name="geometry">
      <rect>
       <x>10</x>
@@ -154,6 +154,81 @@
     </property>
     <property name="text">
      <string>Contest</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="callSignLineEdit">
+    <property name="geometry">
+     <rect>
+      <x>16</x>
+      <y>90</y>
+      <width>141</width>
+      <height>31</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>70</y>
+      <width>58</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Call Sign</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_4">
+    <property name="geometry">
+     <rect>
+      <x>723</x>
+      <y>300</y>
+      <width>81</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Allow Moves</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="moveCheckBox">
+    <property name="geometry">
+     <rect>
+      <x>809</x>
+      <y>298</y>
+      <width>21</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QRadioButton" name="runRadioButton">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>260</y>
+      <width>51</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Run</string>
+    </property>
+   </widget>
+   <widget class="QRadioButton" name="snpRadioButton">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>280</y>
+      <width>51</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>S&amp;&amp;P</string>
     </property>
    </widget>
   </widget>

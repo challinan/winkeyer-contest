@@ -37,7 +37,7 @@ void CountyList::process_line(QByteArray &line, QFile &file) {
         QString us_state = findState(line);
         us_state = us_state.trimmed();
         state_tmp.state = us_state;
-        qDebug() << "State:" << us_state << "has" << countyCount << "counties - HAVE STATE***";
+        // qDebug() << "State:" << us_state << "has" << countyCount << "counties - HAVE STATE***";
         if ( us_state.isEmpty() )
             qDebug() << "State:" << us_state << "has" << countyCount << "counties - NO STATE***";
     } else {

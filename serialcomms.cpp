@@ -27,14 +27,12 @@ SerialComms::SerialComms(QObject *parent, Sqlite3_connector *p)
 
 SerialComms::~SerialComms() {
 
-    qDebug() << "SerialComms::~SerialComms(): Destructor entered ****";
     if ( active_serial_port_p ) {
         close_serial_port();
         delete active_serial_port_p;
     }
     // Disconnect signals ???
 
-    qDebug() << "SerialComms::~SerialComms(): Destructor exiting ****";
 }
 
 bool SerialComms::openSerialPort() {

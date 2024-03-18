@@ -11,6 +11,7 @@ CONFIG += c++17
 QMAKE_CXXFLAGS += -O0
 
 SOURCES += \
+    contest_configuration.cpp \
     database-tables-base.cpp \
     ledwidget.cpp \
     main.cpp \
@@ -22,6 +23,7 @@ SOURCES += \
     tabbed-config-dialog.cpp
 
 HEADERS += \
+    contest_configuration.h \
     database-tables-base.h \
     ledwidget.h \
     mainwindow.h \
@@ -33,8 +35,7 @@ HEADERS += \
     tabbed-config-dialog.h
 
 FORMS += \
-    mainwindow.ui \
-    station_data.ui
+    mainwindow.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

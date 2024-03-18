@@ -62,7 +62,10 @@ private:
         {5, {"state", "", "State"}},
         {6, {"county", "", "County"}},
         {7, {"country", "", "Country"}},
-        {8, {"section", "", "ARRL Section"}},
+        {8, {"cqzone", "", "CQ Zone"}},
+        {9, {"section", "", "ARRL Section"}},
+        {10, {"ituregion", "", "ITU Region"}}
+
     };
 
 private:
