@@ -126,11 +126,11 @@
       <x>690</x>
       <y>10</y>
       <width>111</width>
-      <height>10</height>
+      <height>16</height>
      </rect>
     </property>
     <property name="text">
-     <string>Serial Port Status</string>
+     <string>Winkeyer Status</string>
     </property>
    </widget>
    <widget class="QComboBox" name="contestComboBox">
@@ -229,6 +229,58 @@
     </property>
     <property name="text">
      <string>S&amp;&amp;P</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="esmCheckBox">
+    <property name="geometry">
+     <rect>
+      <x>809</x>
+      <y>320</y>
+      <width>21</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_5">
+    <property name="geometry">
+     <rect>
+      <x>723</x>
+      <y>320</y>
+      <width>71</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>ESM Mode</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>690</x>
+      <y>30</y>
+      <width>81</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>ESM Mode</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="esmModeLabel">
+    <property name="geometry">
+     <rect>
+      <x>807</x>
+      <y>30</y>
+      <width>31</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>OFF</string>
     </property>
    </widget>
   </widget>

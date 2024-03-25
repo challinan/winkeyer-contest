@@ -6,10 +6,11 @@ ContestConfiguration::ContestConfiguration(QObject *parent, Sqlite3_connector *p
     db = p; // Copy of our database class
     runMode = SNP_MODE;     // Default to Search & Pounce
 
-    qDebug() << "ContestConfiguration::ContestConfiguration(): Entered";
+    qDebug() << "ContestConfiguration::ContestConfiguration(): Entered: db = " << db;
+
     // createGlobalContestTable();
-    readCwDefaultMsgFile();
-    displayFunctionKeyMap();
+    if ( readCwDefaultMsgFile() )
+        displayFunctionKeyList();
 }
 
 bool ContestConfiguration::getDatabaseConnection() {
@@ -113,8 +114,10 @@ bool ContestConfiguration::readCwDefaultMsgFile() {
     QFile cwFile (fileName);
     rc = cwFile.open(QIODeviceBase::ReadWrite | QIODeviceBase::Text);
 
-    if ( !rc )
+    if ( !rc ) {
+        qDebug() << "ContestConfiguration::readCwDefaultMsgFile(): OPEN FAILED:" << cwFile.errorString();
         return false;
+    }
 
     state_e state = UNKNOWN_MODE;
     while ( !cwFile.atEnd() ) {
@@ -152,18 +155,28 @@ bool ContestConfiguration::readCwDefaultMsgFile() {
             // Isolate the Function Key label
             i = line.indexOf(",");
             QString fLabel = line.left(i);
+            if ( fLabel.contains("{") && fLabel.contains("}")) {
+                // This label is a macro.  Replace it with the correct text
+                replaceLabelTextMacro(fLabel);
+            }
+
             // qDebug() << "ContestConfiguration::readCwDefaultMsgFile(): fLabel:" << fLabel;
             fkey_s.label = fLabel;
 
             line.remove(0, i+1);
             // qDebug() << "ContestConfiguration::readCwDefaultMsgFile(): exchange:" << line;
+            if ( line.contains("{") && fLabel.contains("}")) {
+                // This label is a macro.  Replace it with the correct text
+                replaceLabelTextMacro(line);
+            }
+
             fkey_s.exchange = line;
 
             // Add the run state
             fkey_s.run_state = state;
 
-            // Store this function key in a QMap
-            cwFuncKeys.append(fkey_s);
+            // Store this function key definition in a QMap
+            cwFuncKeyDefs.append(fkey_s);
         }
     }
 
@@ -171,22 +184,23 @@ bool ContestConfiguration::readCwDefaultMsgFile() {
     return true;
 }
 
-void ContestConfiguration::displayFunctionKeyMap() {
+void ContestConfiguration::displayFunctionKeyList() {
 
-    qDebug() << "ContestConfiguration::displayFunctionKeyMap(): Map data follows";
-
-    QListIterator l(cwFuncKeys);
+    QListIterator l(cwFuncKeyDefs);
     while ( l.hasNext() ) {
         struct func_key_t f = l.next();
         QString runstate = f.run_state == 1 ? "Run Mode" : "S&P Mode";
-        qDebug() << "    " << runstate  << f.functionKey << f.label << f.exchange;
+        // qDebug() << "    " << runstate  << f.functionKey << f.label << f.exchange;
     }
 }
 
-state_e ContestConfiguration::getRunMode() {
-    return runMode;
-}
+void ContestConfiguration::replaceLabelTextMacro(QString &s) {
 
-void ContestConfiguration::setRunMode(state_e mode) {
-    runMode = mode;
+    if ( s.contains("MYCALL")) {
+        s.clear();
+        QString mycall = db->getStationInfoCallSign();
+        s.append(mycall);
+    } else {
+        qDebug() << "ContestConfiguration::replaceLabelTextMacro(): *****************8Macro unhandled" << s;
+    }
 }

@@ -216,10 +216,10 @@ void TopLevelTabContainerDialog::user_pressed_save() {
     db->dump_local_contest_config_data();
 
 
-    db->syncGeneric_write_to_database_T(pStationDataClassPtr);
-    db->syncGeneric_write_to_database_T(pSysconfigDataClassPtr);
-    db->syncGeneric_write_to_database_T(pContestDataClassPtr);
-    db->syncGeneric_write_to_database_T(pContestConfigDataClassPtr);
+    db->syncGenericWriteToDatabase_T(pStationDataClassPtr);
+    db->syncGenericWriteToDatabase_T(pSysconfigDataClassPtr);
+    db->syncGenericWriteToDatabase_T(pContestDataClassPtr);
+    db->syncGenericWriteToDatabase_T(pContestConfigDataClassPtr);
 
     // Disconnect all the QLineEdit signals
     connectStationTabTextChangedSignals(false);

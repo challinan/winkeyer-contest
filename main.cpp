@@ -6,8 +6,9 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    MainWindow w;
-    if ( !w.initSucceeded() )
+    MainWindow w;   // This calls the MainWindow constructor
+
+    if ( !w.initSucceeded() )   // This checks the initialization_succeeded flag
         return(-1);
     w.show();
 

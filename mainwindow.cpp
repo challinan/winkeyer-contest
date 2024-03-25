@@ -5,20 +5,25 @@
 
 #include <QPointF>
 
-// #define SKIP_SERIAL_PORT_INIT
 // #define DBCONFIG_DEBUG  // When enabled, erases the db file on every run
 
 // The purpose of this function is to allow the main window to become visible
 //   before anything else.  For example, if there is no database, the warning
-//   message is displayed before the main window.  Confusing and not good.
+//   message is displayed before the main window.  Confusing and not good.  I
+//   want the MainWindow to appear before any warning dialogs.
+//
 //   Don't know if there is a better way
+
+// Important note: this function will only be called once show() has been called
 void MainWindow::waitForVisible() {
+
     int count = 0;
     while ( isVisible() == false ) {
         count++;
     }
-    // qDebug() << "MainWindow::waitForVisible(void): count =" << count;
-    if ( !initialize_mainwindow() ) {
+    qDebug() << "MainWindow::waitForVisible(void): count =" << count;
+    initialization_succeeded = initialize_mainwindow();
+    if ( !initialization_succeeded ) {
         qDebug() << "MainWindow::waitForVisible(): Exiting app:" << count;
         QApplication::exit(-3);
     }
@@ -32,8 +37,12 @@ MainWindow::MainWindow(QWidget *parent)
     init_called_once = false;           // This helps implement our window becoming visible early
     speed_timer_active = false;
     allow_screen_moves = false;
+    esm_mode = false;
 
     serial_comms_p = nullptr;
+    db = nullptr;
+    pTabbedDialogPtr = nullptr;
+    pContestConfiguration = nullptr;
 
     // qDebug() << "MainWindow::MainWindow(): Ctor Entered";
     ui->setupUi(this);
@@ -89,9 +98,12 @@ bool MainWindow::initialize_mainwindow() {
 
     qDebug() << "MainWindow::initialize_mainwindow(): Called connect(): returned =" << c_invoke_config_dialog;
 
-    db->initContinue();
+    if ( !db->initContinue() )
+        return false;
 
-#ifndef SKIP_SERIAL_PORT_INIT
+    // Read and parse the country data file
+    pCountryFileParser = new CountryFileParser(this);
+
     // Initialize serial port object
     serial_comms_p = new SerialComms(this, db);
 
@@ -119,15 +131,18 @@ bool MainWindow::initialize_mainwindow() {
 
         connect(ui->speedSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::speedSpinBox_valueChanged);
     }
-#endif
 
     // Initialize contest configuration and Populate the contest dropdown with the contest names
-    pContestConfiguration = new ContestConfiguration(db);
+    pContestConfiguration = new ContestConfiguration(this, db);
+
     QListIterator<struct cabrillo_contest_names_t> m(pContestConfiguration->cabrillo_contest_data);
     while ( m.hasNext() ) {
         QString contestname = m.next().cabrillo_name;
         ui->contestComboBox->addItem(contestname);
     }
+
+    // Initialize Run Mode indicator
+    ui->esmModeLabel->setText("OFF");
 
     createFunctionKeys(pContestConfiguration->getRunMode());
     switch (pContestConfiguration->getRunMode()) {
@@ -146,13 +161,15 @@ bool MainWindow::initialize_mainwindow() {
 
     // CW Transmit window is now being created in the main ui form
     // Connect signals/slots
+    // TODO - disconnect in destructor
     connect(ui->cwTextEdit->tx_thread_p, &CWTX_Thread::sendTxChar, serial_comms_p, &SerialComms::processTxChar, Qt::QueuedConnection);
     connect(serial_comms_p, &SerialComms::TxCharComplete,  ui->cwTextEdit->tx_thread_p, &CWTX_Thread::serialPortTxCharComplete, Qt::DirectConnection);
+    connect(ui->cwTextEdit, &TransmitWindow::notifyMainWindowCR, this, &MainWindow::processKeyEventFromTxWindow);
 
     // TODO How, where and when do I kill this timer?
-    blinkTimer = new QTimer(this);
-    connect(blinkTimer, &QTimer::timeout, this, QOverload<>::of(&MainWindow::changeConfigButtonTextColor));
-    blinkTimer->start(350);
+    // blinkTimer = new QTimer(this);
+    // connect(blinkTimer, &QTimer::timeout, this, QOverload<>::of(&MainWindow::changeConfigButtonTextColor));
+    // blinkTimer->start(350);
 
     return true;
 }
@@ -196,23 +213,23 @@ void MainWindow::changeConfigButtonTextColor() {
 MainWindow::~MainWindow()
 {
     qDebug() << "MainWindow::~MainWindow(): dtor entered";
-    // delete pTxWindow;
     delete pContestConfiguration;
-#ifndef SKIP_SERIAL_PORT_INIT
-   delete serial_comms_p;
-#endif
-   // Delete the function key buttons
 
-   QListIterator<QPushButton *> i(function_key_buttons);
-   while ( i.hasNext() ) {
-       QPushButton *p = i.next();
-       // qDebug() << "MainWindow::~MainWindow(): deleting:" << p->objectName();
-       delete p;
-   }
+    delete serial_comms_p;
 
-   delete ui;
-   disconnect(c_invoke_config_dialog);
-   delete db;
+    // Delete the function key buttons
+
+    QListIterator<QPushButton *> i(function_key_buttons);
+    while ( i.hasNext() ) {
+        QPushButton *p = i.next();
+        // qDebug() << "MainWindow::~MainWindow(): deleting:" << p->objectName();
+        delete p;
+    }
+
+    delete ui;
+    disconnect(c_invoke_config_dialog);
+    delete pCountryFileParser;
+    delete db;
 }
 
 void MainWindow::serial_port_detected(QString &s) {
@@ -301,12 +318,6 @@ void MainWindow::UpdateSpeed() {
     qDebug() << "MainWindow::UpdateSpeed(): Timer timedout - slot entered - speed now" << speed;
 
     serial_comms_p->setSpeed(speed);
-    pTxWindow->reportTxSpeed(speed);
-}
-
-void MainWindow::on_comboBox_currentTextChanged(const QString &arg1)
-{
-    qDebug() << "MainWindow::on_comboBox_currentTextChanged(): Entered:" << arg1;
 }
 
 bool MainWindow::eventFilter(QObject *sender, QEvent *event)
@@ -325,21 +336,56 @@ bool MainWindow::eventFilter(QObject *sender, QEvent *event)
             ui->callSignLineEdit->show();
             qDebug() << "MainWindow::eventFilter(): position:" << m_event->position() << "call_sign_box_pos:" << call_sign_box_pos;
         }
+        goto event_filter_done;
     }
+
+    // This code intercepts the CR key for ESM mode (Enter Sends Message)
+    if ( sender == this ) {
+        QKeyEvent *p = (QKeyEvent *)event;
+        qDebug() << "MainWindow::eventFilter(): This should be CR key:" << static_cast<char>(p->key());
+    }
+
+event_filter_done:
     return QWidget::eventFilter(sender, event);
 }
 
-void MainWindow::on_moveCheckBox_stateChanged(int arg1)
+void MainWindow::on_moveCheckBox_stateChanged(int checked)
 {
-    Q_UNUSED(arg1);
-    allow_screen_moves = !allow_screen_moves;
+    allow_screen_moves = checked == Qt::Checked ? true : false;
 }
 
 
+void MainWindow::on_esmCheckBox_stateChanged(int checked)
+{
+    esm_mode = checked == Qt::Checked ? true : false;
+
+    if ( esm_mode ) {
+        ui->esmModeLabel->setStyleSheet("QLabel { color : green; }");
+        ui->esmModeLabel->setText("ON");
+
+        // Configure the Function Keys to reflect ESM mode (highlighting)
+        if ( pContestConfiguration->getRunMode() == RUN_MODE )
+            on_runRadioButton_toggled(true);
+        if ( pContestConfiguration->getRunMode() == SNP_MODE )
+            on_snpRadioButton_toggled(true);
+    }
+    else {
+        ui->esmModeLabel->setStyleSheet("QLabel { color : black; }");
+        ui->esmModeLabel->setText("OFF");
+
+        // Configure the Function Keys to reflect Normal mode (turn off highlighting)
+        disableEsmHighlighting();
+    }
+
+}
+
 void MainWindow::on_contestComboBox_activated(int index)
 {
+    Q_UNUSED(index);
+    QString str = ui->contestComboBox->currentText();
+
     // Configure the main window for the contest chosen by the operator
-    qDebug() << "MainWindow::on_contestComboBox_activated():" << ui->contestComboBox->currentText();
+    qDebug() << "MainWindow::on_contestComboBox_activated():" << str;
 }
 
 void MainWindow::createFunctionKeys(state_e mode) {
@@ -347,7 +393,7 @@ void MainWindow::createFunctionKeys(state_e mode) {
 #define SPACE_BETWEEN_CELLS 10
 #define FKEYS_PER_ROW 6
 
-    QList<struct func_key_t> &pFKeys = pContestConfiguration->cwFuncKeys;
+    QList<struct func_key_t> &pFKeys = pContestConfiguration->cwFuncKeyDefs;
     QList<struct func_key_t> modeList;      // Get only the labels, etc for our current mode
 
     QListIterator<struct func_key_t> m(pFKeys);
@@ -377,15 +423,18 @@ void MainWindow::createFunctionKeys(state_e mode) {
         // Calcaulate where it will be place in our main window
         QRect r;
         r.setX( (left_edge_reference  + ((SPACE_BETWEEN_CELLS + button_width) * i)) );
-        r.setY(r1.y() + 50);
+        r.setY(r1.y() + 70);
         r.setWidth(button_width);
         r.setHeight(r1.height());
         p->setGeometry(r);
 
-        QString button_label = modeList.at(i).functionKey;
-        button_label.append(" " + modeList.at(i).label);
-        p->setText(button_label);
-        p->show();
+        QString fkey_label = modeList.at(i).functionKey;
+        QString label_text = modeList.at(i).label;
+
+        fkey_label.append(" " + label_text);
+        // qDebug () << "Label:" << label_text;
+        p->setText(fkey_label);
+        // p->show();
         function_key_buttons.append(p);
     }
 
@@ -397,25 +446,44 @@ void MainWindow::createFunctionKeys(state_e mode) {
         // Calcaulate where it will be place in our main window
         QRect r;
         r.setX( (left_edge_reference  + ((SPACE_BETWEEN_CELLS + button_width) * (i-6))) );
-        r.setY(r1.y() + 80);
+        r.setY(r1.y() + 100);
         r.setWidth(button_width);
         r.setHeight(r1.height());
         p->setGeometry(r);
 
         QString button_label = modeList.at(i).functionKey;
         button_label.append(" " + modeList.at(i).label);
+        // qDebug () << "Label:" << modeList.at(i).label;
         p->setText(button_label);
         p->show();
         function_key_buttons.append(p);
     }
 }
 
+void MainWindow::disableEsmHighlighting() {
+
+    QPushButton *p = findChild<QPushButton *>("F4");
+    p->setStyleSheet("");
+    p = findChild<QPushButton *>("F1");
+    p->setStyleSheet("");
+
+}
+
 void MainWindow::on_runRadioButton_toggled(bool checked) {
 
     if ( checked ) {
+        // Configure UI for Run Mode
         pContestConfiguration->setRunMode(RUN_MODE);
         ui->snpRadioButton->setChecked(false);
         resetFunctionButtonLabels(RUN_MODE);
+
+        // If ESM mode is enabled, highlight the function that will be send on Enter
+        if ( esm_mode ) {
+            QPushButton *p = findChild<QPushButton *>("F4");
+            p->setStyleSheet("");
+            p = findChild<QPushButton *>("F1");
+            p->setStyleSheet("QPushButton { background-color: yellow }");
+        }
     }
 }
 
@@ -423,16 +491,25 @@ void MainWindow::on_runRadioButton_toggled(bool checked) {
 void MainWindow::on_snpRadioButton_toggled(bool checked) {
 
     if ( checked ) {
+        // Configure the UI for Search & Pounce mode
         pContestConfiguration->setRunMode(SNP_MODE);
         ui->runRadioButton->setChecked(false);
         resetFunctionButtonLabels(SNP_MODE);
+
+        // If ESM mode is enabled, highlight the function that will be send on Enter
+        if ( esm_mode ) {
+            QPushButton *p = findChild<QPushButton *>("F1");
+            p->setStyleSheet("");
+            p = findChild<QPushButton *>("F4");
+            p->setStyleSheet("QPushButton { background-color: yellow }");
+        }
     }
 }
 
 void MainWindow::resetFunctionButtonLabels(state_e mode) {
 
     // Set the appropriate button label for the chosen operating mode, RUN or S&P
-    QList<struct func_key_t> &pFKeys = pContestConfiguration->cwFuncKeys;
+    QList<struct func_key_t> &pFKeys = pContestConfiguration->cwFuncKeyDefs;
     QList<struct func_key_t> modeList;      // Get only the labels, etc for our current mode
 
     QListIterator<struct func_key_t> m(pFKeys);
@@ -447,5 +524,15 @@ void MainWindow::resetFunctionButtonLabels(state_e mode) {
         button_label.append(" " + modeList.at(i).label);
         function_key_buttons.at(i)->setText(button_label);
         function_key_buttons.at(i)->show();
+    }
+}
+
+void MainWindow::processKeyEventFromTxWindow(int key) {
+
+    if ( key == Qt::Key_Return ) {
+        if (esm_mode )
+        qDebug() << "MainWindow::processKeyEventFromTxWindow(): key:" << "CR";
+        // Transmit highlighted function key!
+
     }
 }

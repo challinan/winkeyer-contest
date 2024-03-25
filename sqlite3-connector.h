@@ -44,10 +44,10 @@ public:
 
     // Save data from Database class' local data map to database on local storage (hard disk, etc)
     template <typename T>
-    bool syncGeneric_write_to_database_T(T *pDbClass);
+    bool syncGenericWriteToDatabase_T(T *pDbClass);
 
     // Continue initialization after connect() signals/slots have been made
-    void initContinue();
+    bool initContinue();
 
 public:
     void setSerialPtr(SerialComms *p);
@@ -58,6 +58,7 @@ public:
     SysconfigData *getSysconfigDbClassPtr() { return pSysconfigData; }
     ContestData *getContestDbClassPtr() { return pContestData; }
     ContestConfigData *getContestConfigDbClassPtr() { return pContestConfigData; }
+    QString getStationInfoCallSign() { return pStationData->getLocalDataMap().value("callsign"); }
 
     template <typename T>
     void registerTable(const  QMap<int, dbfields_values_t> &r, T *p);

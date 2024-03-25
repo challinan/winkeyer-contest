@@ -23,7 +23,7 @@ Sqlite3_connector::Sqlite3_connector() {
     }
 }
 
-void Sqlite3_connector::initContinue() {
+bool Sqlite3_connector::initContinue() {
 
     qDebug() << "Sqlite3_connector::Sqlite3_connector(): Instantiating DataBase Table class objects";
     pStationData = new StationData(this);
@@ -31,7 +31,7 @@ void Sqlite3_connector::initContinue() {
     pContestData = new ContestData(this);
     pContestConfigData = new ContestConfigData(this);
 
-    checkIfDatabaseTablesAreEmpty();
+    return checkIfDatabaseTablesAreEmpty();
 }
 
 Sqlite3_connector::~Sqlite3_connector() {
@@ -40,6 +40,7 @@ Sqlite3_connector::~Sqlite3_connector() {
     delete pContestData;
     delete pSysconfigData;
     delete pStationData;
+    delete pContestConfigData;
 }
 
 QString Sqlite3_connector::createDatabaseFullPath() {
@@ -121,7 +122,8 @@ bool Sqlite3_connector::checkIfDatabaseTablesAreEmpty() {
 
     QStringList db_tables = sqlDataBase.tables(QSql::Tables);
     bool database_needs_config = false;
-    // If we have tables, check if any are empty and trigger config it so
+
+    // If we have tables, check if any are empty and trigger config if so
     if ( !db_tables.isEmpty() ) {
         QListIterator<QString> m(db_tables);
         while ( m.hasNext() ) {
@@ -139,7 +141,7 @@ bool Sqlite3_connector::checkIfDatabaseTablesAreEmpty() {
 
     if ( database_needs_config ) {
         qDebug() <<  "DATABASE HAS NO TABLES OR SOME TABLES EMPTY - INITIALIZATION IS REQUIRED";
-        rc_int = display_message_box("Database requires initialization - please configure station data", true);
+        rc_int = display_message_box("Database requires initialization - please configure all", true);
         if ( rc_int != USER_PRESSED_CONFIG ) {
             qDebug() << "Sqlite3_connector::checkIfDatabaseTablesAreEmpty(): User pressed Abort";
             sqlDataBase.close();
@@ -152,13 +154,13 @@ bool Sqlite3_connector::checkIfDatabaseTablesAreEmpty() {
 }
 
 // Force the compiler to instantiate these three specific funcions to avoid link errors
-template bool Sqlite3_connector::syncGeneric_write_to_database_T(StationData *pDbClass);
-template bool Sqlite3_connector::syncGeneric_write_to_database_T(SysconfigData *pDbClass);
-template bool Sqlite3_connector::syncGeneric_write_to_database_T(ContestData *pDbClass);
-template bool Sqlite3_connector::syncGeneric_write_to_database_T(ContestConfigData *pDbClass);
+template bool Sqlite3_connector::syncGenericWriteToDatabase_T(StationData *pDbClass);
+template bool Sqlite3_connector::syncGenericWriteToDatabase_T(SysconfigData *pDbClass);
+template bool Sqlite3_connector::syncGenericWriteToDatabase_T(ContestData *pDbClass);
+template bool Sqlite3_connector::syncGenericWriteToDatabase_T(ContestConfigData *pDbClass);
 
 template <typename T>
-bool Sqlite3_connector::syncGeneric_write_to_database_T(T *pDbClass) {
+bool Sqlite3_connector::syncGenericWriteToDatabase_T(T *pDbClass) {
 
     bool rc;
     qDebug() << "Sqlite3_connector::syncGeneric_write_to_database_T(): Entered" << pDbClass;

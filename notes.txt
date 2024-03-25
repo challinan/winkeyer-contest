@@ -1,3 +1,9 @@
+N1MM Download Page - lots of great info:
+https://n1mmwp.hamdocs.com/mmfiles/
+
+CW Ops Roster:
+https://docs.google.com/spreadsheets/d/1Ew8b1WAorFRCixGRsr031atxmS0SsycvmOczS_fDqzc
+
 Database Notes
 
 --**--
@@ -57,7 +63,7 @@ Threads Notes
 * Convert to Event driven
 * investigate QChildEvent as a way to kick off actions
 * QObject::thread() returns the thread in which the object lives
-* QCoreApplication::postEvent() posts an event for a certain object
+* QApplication::postEvent() posts an event for a certain object
 * You cannot access a QObject from more than one thread at the same time!!
     *  This is likely the reason for the current crash
 * you can't delete a QObject from another thread

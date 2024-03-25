@@ -135,8 +135,6 @@ TransmitWindow::TransmitWindow(QWidget *parent)
 
     // Connect signals
     connect(this, &QTextEdit::textChanged, this, &TransmitWindow::processTextChanged, Qt::QueuedConnection);
-    // connect(this, &QTextEdit::cursorPositionChanged, this, &TransmitWindow::CursorPositionChangedSlot);
-
     connect(this, &TransmitWindow::startTx, tx_thread_p, &CWTX_Thread::sendToSerialPortTx, Qt::QueuedConnection);
     connect(tx_thread_p, &CWTX_Thread::deQueueChar, this, &TransmitWindow::strikeoutCharAsSent, Qt::QueuedConnection);
 }
@@ -190,13 +188,6 @@ qDebug() << "                                                          TransmitW
         goto keyPressEventDone;
     }
 
-    // This is a debug tool
-    if ( key == Qt::Key_Backslash ) {
-        // R() is a C++ raw string literal - dunno where I learned that :-)
-        qDebug() << R"(\\\\\)" << "text window size" << toPlainText().size() << "tx_position" << tx_position;
-        goto keyPressEventDone;
-    }
-
     // Suppoprt for the delete key
     if ( event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace ) {
         qDebug() << "TransmitWindow::keyPressEvent(): Backspace: text window size:" << toPlainText().size() << "tx_position" << tx_position;
@@ -215,13 +206,15 @@ qDebug() << "                                                          TransmitW
     if ( key == Qt::Key_Return ) {
         qDebug() << "TransmitWindow::keyPressEvent(): RETURN KEY!!" << "tx_position" << tx_position;
         tx_position++;  // Return key is in the transmit window, but invisible.  Need to count it.
+        emit notifyMainWindowCR(key);
         goto keyPressEventDone;
     }
 
     // Discard useless characters
     if ( key < Qt::Key_Space || key > Qt::Key_AsciiTilde ) {
         // qDebug() << "TransmitWindow::keyPressEvent(): Discarding key" << static_cast<char>(key) << Qt::hex << static_cast<unsigned int>(key);
-        // QApplication::beep();
+        QApplication::beep();
+
         goto keyPressEventDone;
     }
 
@@ -334,10 +327,6 @@ highlight_done:
     setCurrentCharFormat(normal_f);
     buffMutex.unlock();
     qDebug() << "TransmitWindow::strikeoutCharAsSent(): tx_position:" << tx_position << "cursor selection" << strTmp;
-}
-
-void TransmitWindow::CursorPositionChangedSlot() {
-    qDebug() << "TransmitWindow::cursorPositionChangedSlot(): position:" << cursor.position() << "block:" << cursor.blockNumber();
 }
 
 void TransmitWindow::txReset() {

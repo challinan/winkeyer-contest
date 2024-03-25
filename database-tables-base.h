@@ -146,10 +146,11 @@ public:
     // This defines the system configuration database table layout - the one source of truth
     QMap<int, dbfields_values_t> new_db_fields {
         {0, {"contest_config_data", "", "Table Name"}},
-        {1, {"exchange", "", "Exchange"}},
-        {2, {"section", "", "Section"}},
-        {3, {"sent", "", "RST Sent"}},
-        {4, {"rcvd", "", "RST Rcvd"}}
+        {1, {"cabr_name", "", "Cabrillo Name"}},
+        {2, {"exchange", "", "Exchange"}},
+        {3, {"section", "", "Section"}},
+        {4, {"sent", "", "RST Sent"}},
+        {5, {"rcvd", "", "RST Rcvd"}}
     };
 
 private:

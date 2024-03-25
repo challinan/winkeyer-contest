@@ -12,6 +12,8 @@ QMAKE_CXXFLAGS += -O0
 
 SOURCES += \
     contest_configuration.cpp \
+    contest_type.cpp \
+    country_file_parser.cpp \
     database-tables-base.cpp \
     ledwidget.cpp \
     main.cpp \
@@ -24,6 +26,8 @@ SOURCES += \
 
 HEADERS += \
     contest_configuration.h \
+    contest_type.h \
+    country_file_parser.h \
     database-tables-base.h \
     ledwidget.h \
     mainwindow.h \

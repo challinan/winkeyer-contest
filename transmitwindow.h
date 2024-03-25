@@ -68,7 +68,6 @@ private:
 public slots:
     void processTextChanged();
     void strikeoutCharAsSent();
-    void CursorPositionChangedSlot();
     void reportTxSpeed(int speed);
 
 protected:
@@ -99,6 +98,7 @@ protected:
 
  signals:
      void startTx();
+     void notifyMainWindowCR(int key);
 
 };
 

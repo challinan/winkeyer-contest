@@ -9,6 +9,14 @@
 
 #include "sqlite3-connector.h"
 
+// CW Ops Roster: https://docs.google.com/spreadsheets/d/1Ew8b1WAorFRCixGRsr031atxmS0SsycvmOczS_fDqzc
+// ADIF Spec: https://www.adif.org/314/ADIF_314.htm
+// Great Map info: https://www.mapability.com/ei8ic/index.php
+// N1MM Downloads: https://n1mmwp.hamdocs.com/mmfiles/
+// Chinese Suffix data: https://www.mapability.com/ei8ic/contest/bypre.php
+
+
+
 /* This class manages the diffirent configurations required for specific contest types
  *   hopefully the design will be flexible enough to manage any contest with
  *   the appropriate exchange data, rules and even, yes, points calculation someday
@@ -59,6 +67,7 @@ struct contest_data_t {
     bool has_ituzone;
     bool has_age_group; // OM, UL, Youth YL, or Youth
     bool has_name;
+    bool has_time;
     modes_e runMode;
 };
 
@@ -76,15 +85,21 @@ public:
     explicit ContestConfiguration(QObject *parent = nullptr, Sqlite3_connector *p = nullptr);
     bool createGlobalContestTable();
     bool getDatabaseConnection();
-    state_e getRunMode();
-    void setRunMode(state_e mode);
+    inline state_e getRunMode() {return runMode;}
+    inline void setRunMode(state_e mode) {runMode = mode;}
 
 private:
     bool readCwDefaultMsgFile();
-    void displayFunctionKeyMap();
+
+    // This is for debug - display the local function key map
+    void displayFunctionKeyList();
+
+    // Handle Macros in {TEXT} form
+    void replaceLabelTextMacro(QString &s);
+
 
 public:
-    QList<struct func_key_t> cwFuncKeys;
+    QList<struct func_key_t> cwFuncKeyDefs;
 
 private:
     Sqlite3_connector *db;
@@ -92,7 +107,8 @@ private:
     QString dbpath;
     state_e runMode;
 
-    const QMap<QString, struct contest_data_t> contest_list;
+    // const QMap<QString, struct contest_data_t> contest_list;
+
     const QList<struct us_state_abbrev_t> us_states_list {
         {"Alabama", "AL"},
         {"Alaska", "AK"},
@@ -241,6 +257,7 @@ private:
 
 public:
     // Source: https://www.contestcalendar.com/cabnames.php
+    // TODO: We need to make this database driven
     const QList<struct cabrillo_contest_names_t> cabrillo_contest_data {
         {156, "10-10 Int. 10-10 Day Sprint", "10-10-SPRINT"},
         {173, "10-10 Int. Fall Contest, CW", "10-10-FALL-CW"},
