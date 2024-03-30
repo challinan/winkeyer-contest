@@ -144,8 +144,6 @@ TransmitWindow::~TransmitWindow() {
     tx_thread_p->quit();
     tx_thread_p->wait();
     delete tx_thread_p;
-    qDebug() << "TransmitWindow::~TransmitWindow(): key up/key down mismatch:" << "key_down_count:"
-             <<  key_down_count << "key_release_count" << key_release_count << "strikeout_count" << strikeout_count << "tx_position" << tx_position;
 }
 
 void TransmitWindow::keyPressEvent(QKeyEvent *event) {

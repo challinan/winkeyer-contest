@@ -33,6 +33,7 @@ void MainWindow::waitForVisible() {
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
 {
+    // Entry to main event loop starts when this constructor returns
     initialization_succeeded = true;    // If false, the application will quit before showing main window
     init_called_once = false;           // This helps implement our window becoming visible early
     speed_timer_active = false;
@@ -53,7 +54,13 @@ MainWindow::MainWindow(QWidget *parent)
     ui->callSignLineEdit->setMouseTracking(false);
     call_sign_box_pos = ui->callSignLineEdit->geometry();
 
-    // Entry to main event loop starts when this constructor returns
+    // Set input mask for callSignLineEdit
+   //  ui->callSignLineEdit->setInputMask(">AAAAAA;");
+
+    // Connect signal from call sign input QLineEdit to signal TextEdited
+    // If we connect this signal automatically, or early, the setInputMask fires the signal and we crash
+    connect(ui->callSignLineEdit, &QLineEdit::textEdited, this, &MainWindow::callSignLineEdit_textChanged);
+
     QRect r;
 
     // QRect(0,0 852x425) - this was the default before setting it.
@@ -103,6 +110,7 @@ bool MainWindow::initialize_mainwindow() {
 
     // Read and parse the country data file
     pCountryFileParser = new CountryFileParser(this);
+    connect(this, &MainWindow::callsignTextEditEmpty, pCountryFileParser, &CountryFileParser::callsignEditBoxReportEmpty);
 
     // Initialize serial port object
     serial_comms_p = new SerialComms(this, db);
@@ -165,6 +173,12 @@ bool MainWindow::initialize_mainwindow() {
     connect(ui->cwTextEdit->tx_thread_p, &CWTX_Thread::sendTxChar, serial_comms_p, &SerialComms::processTxChar, Qt::QueuedConnection);
     connect(serial_comms_p, &SerialComms::TxCharComplete,  ui->cwTextEdit->tx_thread_p, &CWTX_Thread::serialPortTxCharComplete, Qt::DirectConnection);
     connect(ui->cwTextEdit, &TransmitWindow::notifyMainWindowCR, this, &MainWindow::processKeyEventFromTxWindow);
+
+    callsign_window_p = new CallSignLookup("Callsign Lookup");
+    callsign_window_p->setAlignment(Qt::AlignHCenter);
+    pCountryFileParser->setCallsignWindowP(callsign_window_p);
+
+    callsign_window_p->show();
 
     // TODO How, where and when do I kill this timer?
     // blinkTimer = new QTimer(this);
@@ -236,35 +250,6 @@ void MainWindow::serial_port_detected(QString &s) {
 
     qDebug() << "MainWindow::serial_port_detected()" << s;
 }
-
-#if 0
-void MainWindow::on_CwTx_TextEdit_textChanged()
-{
-    QTextCursor cursor = ui->CwTx_TextEdit->textCursor();
-    // qDebug() << "MainWindow::on_CwTx_TextEdit_textChanged() entered" << cursor.position();
-
-    int position = cursor.position()-1;
-    QChar character = ui->CwTx_TextEdit->document()->characterAt(position);
-    char c = character.toLatin1();
-
-    if ( serial_comms_p == nullptr ) return;    // We don't have a valid serial comms object (mostly for debugging)
-
-    if ( c == 'T' ) {
-        serial_comms_p->doEchoTest();
-        return;
-    }
-    if ( c == 'V' ) {
-        serial_comms_p->readVCC();
-        return;
-
-    }
-
-    // If fall through - send character
-    c = toupper(c);
-    serial_comms_p->add_byte(c);
-    serial_comms_p->writeSerialData();
-}
-#endif
 
 void MainWindow::on_exitPushButton_clicked()
 {
@@ -536,3 +521,14 @@ void MainWindow::processKeyEventFromTxWindow(int key) {
 
     }
 }
+
+void MainWindow::callSignLineEdit_textChanged(const QString &arg1)
+{
+    if ( arg1.isEmpty() )
+        emit callsignTextEditEmpty();
+    QString s = arg1.toUpper();
+    ui->callSignLineEdit->setText(s);
+    // qDebug() << "MainWindow::on_callSignLineEdit_textChanged(): Entered - arg1" << s;
+    pCountryFileParser->lookupPartial(s, callsign_window_p);
+}
+

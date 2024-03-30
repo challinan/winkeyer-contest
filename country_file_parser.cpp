@@ -10,7 +10,80 @@ CountryFileParser::CountryFileParser(QObject *parent)
             qDebug() << "CountryFileParser::CountryFileParser: Failed to parse country data file:" << CTY_FILENAME;
             QApplication::exit(8);
         }
-        displayRecordList();
+        // displayRecordList();
+
+        // unitTestPartialScanner();
+        // Q_ASSERT(false);
+    }
+
+    // Initialize class variables
+    entry_in_progress = false;
+}
+
+void CountryFileParser::unitTestPartialScanner() {
+    const static char a = 'A';
+    const static char z = 'Z';
+    const static char c_0 = '0';
+    const static char c_9 = '9';
+
+    QList<QString> prefix_pairs;
+    QList<QString> prefix_triplets;
+
+    for ( char i=a; i<=z; i++) {
+        for ( char j=a; j<=z; j++) {
+            QString s = QChar(i);
+            s.append(QChar(j));
+            prefix_pairs.append(s);
+        }
+    }
+    // qDebug().noquote() << prefix_pairs;
+    qDebug() << prefix_pairs.size();
+
+    for ( char i=a; i<=z; i++) {
+        for ( char j=a; j<=z; j++) {
+            for ( char k = c_0; k < c_9; k++ ) {
+                QString s = QChar(i);
+                s.append(QChar(j));
+                s.append(QChar(k));
+                prefix_triplets.append(s);
+            }
+        }
+    }
+
+    for ( char i=a; i<=z; i++) {
+        for ( char j=c_0; j <= c_9; j++) {
+            for (  char k = a; k < z; k++ ) {
+                QString s = QChar(i);
+                s.append(QChar(j));
+                s.append(QChar(k));
+                prefix_triplets.append(s);
+            }
+        }
+    }
+
+    for ( char i=c_0; i <= c_9; i++) {
+        for ( char j=a; j<=z; j++) {
+            for (  char k = a; k < z; k++ ) {
+                QString s = QChar(i);
+                s.append(QChar(j));
+                s.append(QChar(k));
+                prefix_triplets.append(s);
+            }
+        }
+    }
+
+    QListIterator<QString> m(prefix_pairs);
+    while ( m.hasNext() ) {
+        QString s = m.next();
+        if ( lookupPartial(s) )
+            qDebug() << "Matched pair:" << s;
+    }
+
+    QListIterator<QString> n(prefix_triplets);
+    while ( n.hasNext() ) {
+        QString s = n.next();
+        if ( lookupPartial(s) )
+                qDebug() << "Matched Triplet:" << s;
     }
 }
 
@@ -329,10 +402,13 @@ void CountryFileParser::scanRecord(QString record) {
             }
 
             case F_ALIAS: {
+                // TODO: This code is never reached
                 // fields_state = F_CTY;
                 QString s = record.mid(field_start, position_index - field_start);
                 s = s.trimmed();
-                r.alias_prefixes.append(s);
+                struct alias_t a = parseAliasPrefix(s);
+                a.country = r.country;
+                r.alias_prefixes.append(a);
                 break;
             }
 
@@ -355,7 +431,9 @@ void CountryFileParser::scanRecord(QString record) {
             if ( fields_state == F_ALIAS ) {
                 QString s = record.mid(field_start, position_index - field_start);
                 s = s.trimmed();
-                r.alias_prefixes.append(s);
+                struct alias_t a = parseAliasPrefix(s);
+                a.country = r.country;  // Link the prefixes to the country
+                r.alias_prefixes.append(a);
                 fields_state = F_CTY;
                 scan_state = SR_SCAN;
             }
@@ -378,7 +456,14 @@ void CountryFileParser::scanRecord(QString record) {
             QString s = record.mid(field_start, position_index - field_start);
             s = s.trimmed();
             // Indicates end of alias prefix field, add alias to our list
-            r.alias_prefixes.append(s);
+
+            // Debug code TODO
+            // if ( r.country.contains("Spain") )
+            //     qDebug() << "Spain";
+
+            struct alias_t a = parseAliasPrefix(s);
+            a.country = r.country;  // Link the prefixes to the country
+            r.alias_prefixes.append(a);
             scan_state = SR_SCAN;
             }
 
@@ -400,8 +485,6 @@ void CountryFileParser::scanRecord(QString record) {
             break;
 
         case '=':
-            if ( r.country.contains("Spain"))
-                qDebug() << "Spain";
             // Unique callsigns can end with a variety of characters including
             //  ';' semicolon, the simple case!
             //  ',' comma
@@ -485,7 +568,79 @@ void CountryFileParser::scanFileForSpecialChars() {
     }
 }
 
-void CountryFileParser::displayRecordList() {
+struct alias_t CountryFileParser::parseAliasPrefix(QString &alias) {
+    // Alias records look like this:
+    // 3H0A(23)[42]<43.75/-87.75>
+    // They can have any, all or none of (CQZONE), [ITUZONE] or <lat/lon>
+
+    struct alias_t a;
+
+    if ( alias.contains('(') || alias.contains('<') || alias.contains('[') ) {
+        // An Alias can contain any, all, or none of CQZone, ITUZone and lat/lon
+        // We want to isolate just the prefix part here.
+        int lp = alias.indexOf('(');
+        int lb = alias.indexOf('[');
+        int lab = alias.indexOf('<');
+        int min = getLowestValidInt(lp, lb, lab);
+        if ( min > 0 )
+            a.prefix = alias.left(min);
+    } else {
+        a.prefix = alias;
+    }
+
+    // Isolate the CQ Zone if present
+    if ( alias.contains('(') ) {
+        // We have a CQ Zone
+        int left_index = alias.indexOf('(');
+        int right_index = alias.indexOf(')');
+        left_index++;    // Position on the first character of CQ Zone
+        a.CQ_Zone = alias.mid(left_index, right_index - left_index);
+    }
+
+    // Isolate the ITU Zone if present
+    if ( alias.contains('[') ) {
+        // We have a CQ Zone
+        int left_index = alias.indexOf('[');
+        int right_index = alias.indexOf(']');
+        left_index++;    // Position on the first character of CQ Zone
+        a.ITU_Zone = alias.mid(left_index, right_index - left_index);
+    }
+
+    // Isolate the Lat/Lon if present
+    if ( alias.contains('<') ) {
+        // We have a CQ Zone
+        int left_index = alias.indexOf('<');
+        int right_index = alias.indexOf('/');   // Lat/Lon are separated by
+        left_index++;    // Position on the first character of CQ Zone
+        a.lat = alias.mid(left_index, right_index - left_index).toFloat();
+        left_index = right_index + 1;
+        right_index = alias.indexOf('>');
+        a.lon = alias.mid(left_index, right_index - left_index).toFloat();
+    }
+    return a;
+}
+
+int CountryFileParser::getLowestValidInt(int lp, int lb, int lab) {
+
+    int smallest = 500; // Randomly large number
+
+    // Could be -1
+    // We assume we only get called in here if at least one of the parameters
+    // is greater than zero.  See the caller for details.
+
+    if ( lp > 0 && lp < smallest )
+        smallest = lp;
+
+    if ( lb > 0 && lb < smallest )
+        smallest = lb;
+
+    if (lab > 0 && lab < smallest )
+        smallest = lab;
+
+     return smallest;
+}
+
+bool CountryFileParser::displayRecordList() {
 
     // country_record_list
     struct country_record_t r;
@@ -493,12 +648,199 @@ void CountryFileParser::displayRecordList() {
     QListIterator<struct country_record_t> m(country_record_list);
     while ( m.hasNext() ) {
         r = m.next();
-        qDebug() << "Country:" << r.country << "Uniques:" << r.unique_calls.size();
-        if ( r.country == "Vienna Intl Ctr" || r.country.contains("Spain")) {
-            qDebug() << "Uniques:" << r.unique_calls;
-            qDebug() << "Aliases:" << r.alias_prefixes;
+        qDebug().noquote() << "Country:" << r.country << "CQ ZONE:" << r.CQ_Zone << "ITU Zone:" << r.ITU_Zone << "Lat/Lon:" << r.lat << r.lon << "Uniques:" << r.unique_calls.size();
+
+        if ( 1 || r.country == "Vienna Intl Ctr" || r.country.contains("Spain")) {
+            if ( !r.unique_calls.isEmpty() )
+                qDebug().noquote() << "Uniques:" << r.unique_calls;
+
+            if ( !r.alias_prefixes.isEmpty() ) {
+                QListIterator<struct alias_t> i(r.alias_prefixes);
+                QString tmpS;
+                while ( i.hasNext() ) {
+                    struct alias_t a = i.next();
+                    QString s;
+                    s.append(a.country + ": ");
+                    s.append(a.prefix + ": ");
+                    if ( a.CQ_Zone != "" )
+                        s.append("(" + a.CQ_Zone + ") ");
+
+                    if ( a.ITU_Zone != "" )
+                        s.append("[" + a.ITU_Zone + "] ");
+
+                    if ( a.lat != 0.0 ) {
+                        s.append("<" + QString::number(a.lat) + "/");
+                        s.append(QString::number(a.lon) + "> ");
+                    }
+                    tmpS.append(s);
+                }
+                qDebug().noquote() << "Aliases:" << tmpS << '\n';
+            }
         }
 
         // qDebug() << "Aliases:" << r.alias_prefixes;
     }
+    return true;
+}
+
+bool CountryFileParser::lookupPartial(const QString arg1, CallSignLookup *pCallSign) {
+
+    // Lookup callsign
+    // There are two possible outcomes:
+    //   1) prefix is one of the primary dxcc prefixes
+    //   2) prefix is one of the aliases.  Both must be checked.
+    // qDebug() << "CountryFileParser::lookupPartial() Entered: arg1:" << arg1;
+
+    bool primary_match = false;
+    bool alias_match = false;
+    bool unique_match = false;
+
+    if ( pCallSign != nullptr ) { // Accomodate some unit testing
+        if ( !entry_in_progress ) {
+            pCallSign->call_sign_line_edit_p->clear();
+            pCallSign->country_text_edit_p->clear();
+            pCallSign->prefix_text_edit_p->clear();
+            pCallSign->unique_line_edit_p->clear();
+            pCallSign->country_text_edit_p->update();
+            pCallSign->prefix_text_edit_p->update();
+            pCallSign->unique_line_edit_p->update();
+            pCallSign->call_sign_line_edit_p->update();
+        }
+    }
+
+    if ( arg1.isEmpty() )
+        return false;
+
+    QMap<QString, QString> country_list;
+    QMap<QString, QString> prefix_list;
+    QMap<QString, QString> uniques_list;
+
+    if ( pCallSign != nullptr ) { // Accomodate some unit testing
+        pCallSign->call_sign_line_edit_p->setText(arg1);
+    }
+
+    // *****************  PRIMARY FIRST  *********************
+    // First see if the prefix matches any of the "Primary" dxcc prefixes
+
+    QListIterator<struct country_record_t> m(country_record_list);
+    int c_count = 0;
+    int p_count = 0;
+    while ( m.hasNext() ) {
+        struct country_record_t r;
+        c_count++;
+        r = m.next();
+        if ( r.primary_dxcc_prefix.startsWith(arg1) ) {
+            QString s = r.country;
+            primary_match = true;
+            country_list.insert(s, "");
+            qDebug().noquote() << "CountryFileParser::lookupPartial(): Primary: arg1:" << arg1 << "Country:" << s;
+
+            if ( pCallSign != nullptr ) {// Accomodate some unit testing
+                pCallSign->prefix_text_edit_p->append(r.primary_dxcc_prefix);
+            }
+        }
+
+        // ***************** PREFIX / ALIAS  **********************
+        // Find compabitle prefixes based on arg1
+        // Each country record contains a list of aliases
+        // Here is the alias list.  Let's see if there's a match
+        QListIterator<struct alias_t> b(r.alias_prefixes);
+        while ( b.hasNext() ) {
+            struct alias_t alias = b.next();
+            if ( alias.prefix.startsWith(arg1) ) {
+                country_list.insert(alias.country, "");
+                prefix_list.insert(alias.prefix, "");
+                qDebug().noquote() << "CountryFileParser::lookupPartial(): Prefix: arg1:" << arg1 << "Prefix:" << alias.prefix << "Country:" << alias.country;
+                alias_match = true;
+            }
+        }
+        qDebug() << "CountryFileParser::lookupPartial(): Prefix: country_list size:" << country_list.size() << "prefix list size:" << prefix_list.size();
+
+
+        // ****************  UNIQUE  ******************
+        // Each country record contains a list of uniqe calls
+        // Here is the uniques list.  Let's see if there's a match
+        QListIterator<QString> n(r.unique_calls);
+        int len = arg1.size();
+        while ( n.hasNext() ) {
+            QString s_unique = n.next();
+            QString unique_stripped = stripUnique(s_unique);
+            if ( unique_stripped.left(len) == arg1 ) {
+                uniques_list.insert(unique_stripped, "");
+                unique_match = true;
+            }
+        }
+    }
+    qDebug() << "CountryFileParser::lookupPartial():" << c_count << "Country records processed - country_list size:" << country_list.size();
+
+    // Now that we've found all the countries and prefixes, display them
+    if ( pCallSign != nullptr ) { // Accomodate some unit testing
+        QList<QString> country_keys = country_list.keys();
+        QListIterator<QString> l(country_keys);
+        c_count = 0;
+        while ( l.hasNext() ) {
+            QString key = l.next();
+            pCallSign->country_text_edit_p->append(key);
+            c_count++;
+        }
+
+        QList<QString> prefix_keys = prefix_list.keys();
+        QListIterator<QString> k(prefix_keys);
+        while ( k.hasNext() ) {
+            QString key = k.next();
+            pCallSign->prefix_text_edit_p->append(key);
+            p_count++;
+        }
+
+        QList<QString> uniques_keys = uniques_list.keys();
+        QListIterator<QString> u(uniques_keys);
+        QString results;
+        while ( u.hasNext() ) {
+            QString key = u.next();
+            results.append(key + " ");
+        }
+        pCallSign->unique_line_edit_p->setText(results);
+    }
+    qDebug() << "CountryFileParser::lookupPartial(): Prefix: country count" << c_count << "prefix count" << p_count;
+
+    if ( primary_match || alias_match || unique_match )
+        return true;
+
+    return false;
+}
+
+void CountryFileParser::callsignEditBoxReportEmpty() {
+    qDebug() << "CountryFileParser::callsignEditBoxReportEmpty(): report empty";
+    entry_in_progress = false;
+    pCallSign->call_sign_line_edit_p->clear();
+    pCallSign->country_text_edit_p->clear();
+    pCallSign->prefix_text_edit_p->clear();
+    pCallSign->unique_line_edit_p->clear();
+    pCallSign->country_text_edit_p->update();
+    pCallSign->prefix_text_edit_p->update();
+    pCallSign->unique_line_edit_p->update();
+    pCallSign->call_sign_line_edit_p->update();
+}
+
+QString CountryFileParser::stripUnique(QString &s) {
+
+    // TODO this is duplicated code
+    QString a;
+    if ( s.contains('(') || s.contains('<') || s.contains('[') ) {
+        // An Alias can contain any, all, or none of CQZone, ITUZone and lat/lon
+        // We want to isolate just the prefix part here.
+        int lp = s.indexOf('(');
+        int lb = s.indexOf('[');
+        int lab = s.indexOf('<');
+        int min = getLowestValidInt(lp, lb, lab);
+        if ( min > 0 )
+            a = s.left(min);
+    } else {
+        a = s;
+    }
+    return a;
+}
+
+void CountryFileParser::setCallsignWindowP(CallSignLookup *callsign_window_p) {
+    pCallSign = callsign_window_p;
 }

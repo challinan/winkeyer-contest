@@ -22,6 +22,7 @@
 #include "county_list.h"
 #include <contest_configuration.h>
 #include "country_file_parser.h"
+#include "callsign_lookup.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -78,6 +79,7 @@ private:
     QList<QPushButton *> function_key_buttons;
     bool esm_mode;
     CountryFileParser *pCountryFileParser;
+    CallSignLookup *callsign_window_p;
 
 
 protected:
@@ -102,8 +104,11 @@ private slots:
     void on_snpRadioButton_toggled(bool checked);
     void on_esmCheckBox_stateChanged(int arg1);
 
+    void callSignLineEdit_textChanged(const QString &arg1);
+
 signals:
     void waitVisibleSignal();
+    void callsignTextEditEmpty();
 };
 
 #endif // MAINWINDOW_H

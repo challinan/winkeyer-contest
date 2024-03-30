@@ -11,6 +11,7 @@ CONFIG += c++17
 QMAKE_CXXFLAGS += -O0
 
 SOURCES += \
+    callsign_lookup.cpp \
     contest_configuration.cpp \
     contest_type.cpp \
     country_file_parser.cpp \
@@ -25,6 +26,7 @@ SOURCES += \
     tabbed-config-dialog.cpp
 
 HEADERS += \
+    callsign_lookup.h \
     contest_configuration.h \
     contest_type.h \
     country_file_parser.h \
