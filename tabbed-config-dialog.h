@@ -32,8 +32,6 @@ public:
     explicit TopLevelTabContainerDialog(Sqlite3_connector *db, QWidget *parent = nullptr);
     ~TopLevelTabContainerDialog();
 
-    void connectStationTabTextChangedSignals(bool doConnect=true);
-
 private:
     void save_tabbed_data_to_database();
 
@@ -111,6 +109,9 @@ public:
     ~StationDataTab();
 
     void setLocalMapValueByKey(QString key, QString value);
+
+    // Debug code
+    void set_dummy_station_data(StationData *pStationData);
 
 };
 

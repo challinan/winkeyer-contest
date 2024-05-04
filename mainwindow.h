@@ -13,6 +13,9 @@
 #include <QMainWindow>
 #include <QDir>
 #include <QSerialPortInfo>
+#include <QMenu>
+#include <QMenuBar>
+#include <QAction>
 
 #include "serialcomms.h"
 #include "ui_station_data.h"
@@ -53,11 +56,9 @@ public:
     void setSerialStatusLedColor(QColor color);
 
 private:
-    void set_dummy_station_data(Ui::stationDialog sd_ui);
     void setupContextEditBoxes();
-    // void populateSerialPortComboBox(Ui::stationDialog sd_ui);
-    void createFunctionKeys(state_e mode);
-    void resetFunctionButtonLabels(state_e mode);
+    void createFunctionKeys(run_state_e run_mode);
+    void resetFunctionButtonLabels(run_state_e run_mode);
     void disableEsmHighlighting();
 
 private:
@@ -105,6 +106,9 @@ private slots:
     void on_esmCheckBox_stateChanged(int arg1);
 
     void callSignLineEdit_textChanged(const QString &arg1);
+
+    // Main Menu
+    void menubarTriggered(QAction *a);
 
 signals:
     void waitVisibleSignal();

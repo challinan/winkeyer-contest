@@ -17,7 +17,7 @@ CountryFileParser::CountryFileParser(QObject *parent)
     }
 
     // Initialize class variables
-    entry_in_progress = false;
+    //  TODO This variable is never set to true - never used
 }
 
 void CountryFileParser::unitTestPartialScanner() {
@@ -95,7 +95,7 @@ CountryFileParser::~CountryFileParser() {
 bool CountryFileParser::openCtyFile() {
 
     bool rc;
-    int bytes_read, total_bytes;
+    int bytes_read;
     int filesize;
     char b[MAX_READ_SIZE];
 
@@ -109,30 +109,28 @@ bool CountryFileParser::openCtyFile() {
     filesize = f.size();
     qDebug() << "CountryFileParser::openCtyFile(): file size is:" << filesize;
 
-    total_bytes = 0;
     while ( (bytes_read = f.read(b, MAX_READ_SIZE)) ) {
         if ( bytes_read == -1 ) {
             qDebug() << "CountryFileParser::openCtyFile(): FILE READ FAILED:" << f.errorString();
             f.close();
             return false;
         }
-        total_bytes += bytes_read;
         // qDebug() << bytes_read << "end of buff" << b[bytes_read-1] << "Char at end of buff:" << static_cast<unsigned char>(b[bytes_read-1]);
         file_buffer.append(b, bytes_read);
     }
-    qDebug() << "  total bytes read:" << total_bytes << "QByteArray size:" << file_buffer.size();
+    // qDebug() << "QByteArray size:" << file_buffer.size();
 
     f.close();
     return true;
 }
 
-enum parse_state_e { LINE_START, RECORD_START, RECORD_END, COMMENT, SKIP_POUND };
+enum parse_state_e { LINE_START, RECORD_START, RECORD_END, COMMENT };
 
 bool CountryFileParser::parseFileIntoRecords() {
 
     // This index is our current pointer into the file_buffer QByteArray.
     int position_index = 0;
-    int record_count = 0;
+    // int record_count = 0;
     parse_state_e p_state = LINE_START;
     int fbsize = file_buffer.size();
 
@@ -166,7 +164,7 @@ bool CountryFileParser::parseFileIntoRecords() {
             if ( c == ';' ) {
                 QString s = file_buffer.mid(record_start, position_index - record_start + 1);
                 country_records.append( s );
-                record_count++;
+                // record_count++;
                 // qDebug().noquote() << "Record @: [" << position_index << "]" << s  << '\n';
                 p_state = RECORD_END;
             }
@@ -196,7 +194,7 @@ bool CountryFileParser::parseFileIntoRecords() {
 
         position_index++;
     }
-    qDebug() << "CountryFileParser::parseFileIntoRecords(): Record count is:" << record_count;
+    // qDebug() << "CountryFileParser::parseFileIntoRecords(): Record count is:" << record_count;
     return true;
 }
 
@@ -286,6 +284,7 @@ bool CountryFileParser::parseEachRecord() {
 
 enum scan_state_e {SR_START_OF_RECORD, SR_SCAN, SR_FIELD_START, SR_FIELD_TERMINATE, SR_COMMENT, SR_ALIAS};
 enum scan_fields_e {F_START, F_CTY, F_CQZ, F_ITZ, F_CONT, F_LAT, F_LON, F_OFFSET, F_PRIMARY, F_ALIAS, F_UNIQUE};
+
 void CountryFileParser::scanRecord(QString record) {
 
     // Characters in file other than alphanumeric: # : / . - _ ' ; , & < > = * ( ) [ ] " ~
@@ -320,6 +319,7 @@ void CountryFileParser::scanRecord(QString record) {
     int rec_size = record.size();
     int position_index = 0;
     int field_start = 0;
+    static int record_count = 0;
 
     // Get a pointer to the QString data elements
     const QChar *p = record.constData();
@@ -407,7 +407,6 @@ void CountryFileParser::scanRecord(QString record) {
                 QString s = record.mid(field_start, position_index - field_start);
                 s = s.trimmed();
                 struct alias_t a = parseAliasPrefix(s);
-                a.country = r.country;
                 r.alias_prefixes.append(a);
                 break;
             }
@@ -432,7 +431,6 @@ void CountryFileParser::scanRecord(QString record) {
                 QString s = record.mid(field_start, position_index - field_start);
                 s = s.trimmed();
                 struct alias_t a = parseAliasPrefix(s);
-                a.country = r.country;  // Link the prefixes to the country
                 r.alias_prefixes.append(a);
                 fields_state = F_CTY;
                 scan_state = SR_SCAN;
@@ -445,7 +443,7 @@ void CountryFileParser::scanRecord(QString record) {
                 scan_state = SR_SCAN;
                 fields_state = F_CTY;
             }
-
+            r.index = record_count++;
             country_record_list.append(r);
             break;
         }
@@ -462,7 +460,6 @@ void CountryFileParser::scanRecord(QString record) {
             //     qDebug() << "Spain";
 
             struct alias_t a = parseAliasPrefix(s);
-            a.country = r.country;  // Link the prefixes to the country
             r.alias_prefixes.append(a);
             scan_state = SR_SCAN;
             }
@@ -569,6 +566,7 @@ void CountryFileParser::scanFileForSpecialChars() {
 }
 
 struct alias_t CountryFileParser::parseAliasPrefix(QString &alias) {
+
     // Alias records look like this:
     // 3H0A(23)[42]<43.75/-87.75>
     // They can have any, all or none of (CQZONE), [ITUZONE] or <lat/lon>
@@ -640,192 +638,224 @@ int CountryFileParser::getLowestValidInt(int lp, int lb, int lab) {
      return smallest;
 }
 
-bool CountryFileParser::displayRecordList() {
-
-    // country_record_list
-    struct country_record_t r;
-
-    QListIterator<struct country_record_t> m(country_record_list);
-    while ( m.hasNext() ) {
-        r = m.next();
-        qDebug().noquote() << "Country:" << r.country << "CQ ZONE:" << r.CQ_Zone << "ITU Zone:" << r.ITU_Zone << "Lat/Lon:" << r.lat << r.lon << "Uniques:" << r.unique_calls.size();
-
-        if ( 1 || r.country == "Vienna Intl Ctr" || r.country.contains("Spain")) {
-            if ( !r.unique_calls.isEmpty() )
-                qDebug().noquote() << "Uniques:" << r.unique_calls;
-
-            if ( !r.alias_prefixes.isEmpty() ) {
-                QListIterator<struct alias_t> i(r.alias_prefixes);
-                QString tmpS;
-                while ( i.hasNext() ) {
-                    struct alias_t a = i.next();
-                    QString s;
-                    s.append(a.country + ": ");
-                    s.append(a.prefix + ": ");
-                    if ( a.CQ_Zone != "" )
-                        s.append("(" + a.CQ_Zone + ") ");
-
-                    if ( a.ITU_Zone != "" )
-                        s.append("[" + a.ITU_Zone + "] ");
-
-                    if ( a.lat != 0.0 ) {
-                        s.append("<" + QString::number(a.lat) + "/");
-                        s.append(QString::number(a.lon) + "> ");
-                    }
-                    tmpS.append(s);
-                }
-                qDebug().noquote() << "Aliases:" << tmpS << '\n';
-            }
-        }
-
-        // qDebug() << "Aliases:" << r.alias_prefixes;
-    }
-    return true;
-}
-
-bool CountryFileParser::lookupPartial(const QString arg1, CallSignLookup *pCallSign) {
+bool CountryFileParser::lookupPartial(const QString arg1) {
 
     // Lookup callsign
     // There are two possible outcomes:
     //   1) prefix is one of the primary dxcc prefixes
     //   2) prefix is one of the aliases.  Both must be checked.
+    // There is also the possibility that the callsign will be one of the "Uniques" listed in the country file.
+    //   Check this also
+
     // qDebug() << "CountryFileParser::lookupPartial() Entered: arg1:" << arg1;
 
-    bool primary_match = false;
-    bool alias_match = false;
-    bool unique_match = false;
+    bool user_backspacing = arg1.length() < pCallSign->call_sign_line_edit_p->text().length() ? true : false;
 
-    if ( pCallSign != nullptr ) { // Accomodate some unit testing
-        if ( !entry_in_progress ) {
-            pCallSign->call_sign_line_edit_p->clear();
-            pCallSign->country_text_edit_p->clear();
-            pCallSign->prefix_text_edit_p->clear();
-            pCallSign->unique_line_edit_p->clear();
-            pCallSign->country_text_edit_p->update();
-            pCallSign->prefix_text_edit_p->update();
-            pCallSign->unique_line_edit_p->update();
-            pCallSign->call_sign_line_edit_p->update();
+    // Debug code - TODO - Remove
+    if ( arg1.contains("-") ) {
+        QMapIterator<QString, struct country_record_t> mm(matching_record_list);
+        while ( mm.hasNext() ) {
+            QString c = mm.next().key();
+            qDebug() << ">>>>>>>>>>>>>>> Country Match:" << c;
         }
+
+        // displayRecordList();
+        return false;
     }
 
-    if ( arg1.isEmpty() )
+    if ( arg1.isEmpty() ) {
+        clearLookupFields();
+        matching_record_list.clear();
         return false;
+    }
 
-    QMap<QString, QString> country_list;
-    QMap<QString, QString> prefix_list;
-    QMap<QString, QString> uniques_list;
-
-    if ( pCallSign != nullptr ) { // Accomodate some unit testing
+    if ( pCallSign != nullptr ) {
         pCallSign->call_sign_line_edit_p->setText(arg1);
     }
 
     // *****************  PRIMARY FIRST  *********************
     // First see if the prefix matches any of the "Primary" dxcc prefixes
+    // Primary will only produce a match if the primary prefix matches
+    unique_call_list.clear();
 
-    QListIterator<struct country_record_t> m(country_record_list);
-    int c_count = 0;
-    int p_count = 0;
-    while ( m.hasNext() ) {
-        struct country_record_t r;
-        c_count++;
-        r = m.next();
-        if ( r.primary_dxcc_prefix.startsWith(arg1) ) {
-            QString s = r.country;
-            primary_match = true;
-            country_list.insert(s, "");
-            qDebug().noquote() << "CountryFileParser::lookupPartial(): Primary: arg1:" << arg1 << "Country:" << s;
+    if ( matching_record_list.isEmpty() || user_backspacing ) {
+        QListIterator<struct country_record_t> m(country_record_list);  // 346 records as of March 2024
+        while ( m.hasNext() ) {
+            QString country;
+            struct country_record_t r;
+            r = m.next();
+            // Debug Code - remove TODO
+            QString primary_prefix = r.primary_dxcc_prefix;
+            // if ( arg1.startsWith("A8O") )
+            //      qDebug() << "A8";
+            int match_size = findMatch(arg1.size(), primary_prefix, arg1);
+            if ( match_size == arg1.size() ) {
+                country = r.country;
+                matching_record_list.insert(country, r);
+                qDebug() << "Primary: Adding" << country << "arg1:" << arg1 << "prefix" << primary_prefix;
 
-            if ( pCallSign != nullptr ) {// Accomodate some unit testing
-                pCallSign->prefix_text_edit_p->append(r.primary_dxcc_prefix);
+                // qDebug().noquote() << "CountryFileParser::lookupPartial(): Primary: arg1:" << arg1 << "Country:" << country << "(DXCC Prefix:)" << r.primary_dxcc_prefix;
             }
-        }
 
-        // ***************** PREFIX / ALIAS  **********************
-        // Find compabitle prefixes based on arg1
-        // Each country record contains a list of aliases
-        // Here is the alias list.  Let's see if there's a match
-        QListIterator<struct alias_t> b(r.alias_prefixes);
-        while ( b.hasNext() ) {
-            struct alias_t alias = b.next();
-            if ( alias.prefix.startsWith(arg1) ) {
-                country_list.insert(alias.country, "");
-                prefix_list.insert(alias.prefix, "");
-                qDebug().noquote() << "CountryFileParser::lookupPartial(): Prefix: arg1:" << arg1 << "Prefix:" << alias.prefix << "Country:" << alias.country;
-                alias_match = true;
+            // ***************** PREFIX / ALIAS  **********************
+            // Find compabitle prefixes based on arg1
+            // Each country record contains a list of aliases
+            // Here is the alias list.  Let's see if there's a match
+            QListIterator<struct alias_t> b(r.alias_prefixes);
+            while ( b.hasNext() ) {
+                struct alias_t alias = b.next();
+                int match_size = findMatch(arg1.size(), alias.prefix, arg1);
+                if ( arg1.length() == match_size ) {
+                    matching_record_list.insert(r.country, r);
+                    qDebug() << "Prefix/Alias: Adding" << r.country << "prefix" << alias.prefix << "( arg1:" << arg1 << ")";
+                }
             }
-        }
-        qDebug() << "CountryFileParser::lookupPartial(): Prefix: country_list size:" << country_list.size() << "prefix list size:" << prefix_list.size();
 
-
-        // ****************  UNIQUE  ******************
-        // Each country record contains a list of uniqe calls
-        // Here is the uniques list.  Let's see if there's a match
-        QListIterator<QString> n(r.unique_calls);
-        int len = arg1.size();
-        while ( n.hasNext() ) {
-            QString s_unique = n.next();
-            QString unique_stripped = stripUnique(s_unique);
-            if ( unique_stripped.left(len) == arg1 ) {
-                uniques_list.insert(unique_stripped, "");
-                unique_match = true;
+            // ***************** UNIQUE CALLS  **********************
+            QListIterator<QString> u(r.unique_calls);
+            while ( u.hasNext() ) {
+                QString unique_str = u.next();
+                if ( findMatch(arg1.size(), unique_str, arg1) == arg1.size() ) {
+                    unique_call_list.append(unique_str);
+                    // qDebug() << "Unique: adding:" << unique_str << "from country:" << r.country;
+                    matching_record_list.insert(r.country, r);
+                }
             }
-        }
+        }   // country record list scan loop
+
+    }   // !matching_record_list.isEmpty()
+    else {
+        // From here we are basically whittling down the country_record_list
+        QMutableMapIterator<QString, struct country_record_t> c(matching_record_list);
+        while ( c.hasNext() ) {
+            bool prefix_match = false;
+            bool unique_match = false;
+            c.next();
+            struct country_record_t r = c.value();
+            // Here the goal is to remove entries from the matching_record_list that no longer match
+            // For example, "A" matches 35 countries, "A8" will only match 1
+            int len = r.primary_dxcc_prefix.length();
+            if ( findMatch(len, arg1, r.primary_dxcc_prefix) != len ) {
+                // No match, now check prefixes and uniques
+                QListIterator<struct alias_t> p(r.alias_prefixes);
+                while ( p.hasNext() ) {
+                    QString prefix = p.next().prefix;
+                    int len = prefix.length();
+                    if ( findMatch(len, prefix, arg1) == len ) {
+                        prefix_match = true;
+                        break;
+                    }
+                }
+                // Now check the Unique list for any matches
+                QListIterator<QString> u(r.unique_calls);
+                while ( u.hasNext() ) {
+                    QString unique= u.next();
+                    int len = unique.length();
+                    if ( findMatch(len, unique, arg1) == len ) {
+                        unique_match = true;
+                        break;
+                    }
+                }
+                if ( !prefix_match && !unique_match ) {
+                    // Remove this matching entry - nothing matched
+                    qDebug() << "$$$$$$$$$$$$$$$$$$$$$$$$ Removing" << r.country;
+                    c.remove();
+                }
+            }
+            // Did we find any matches in primary, prefix or uniques?
+        }   // matching record list iterator
     }
-    qDebug() << "CountryFileParser::lookupPartial():" << c_count << "Country records processed - country_list size:" << country_list.size();
+
 
     // Now that we've found all the countries and prefixes, display them
-    if ( pCallSign != nullptr ) { // Accomodate some unit testing
-        QList<QString> country_keys = country_list.keys();
-        QListIterator<QString> l(country_keys);
-        c_count = 0;
-        while ( l.hasNext() ) {
-            QString key = l.next();
-            pCallSign->country_text_edit_p->append(key);
-            c_count++;
+
+    if ( pCallSign != nullptr ) {
+        clearLookupFields();
+        pCallSign->call_sign_line_edit_p->setText(arg1);
+        QString unique_list;
+
+        // Display countries first
+        QMapIterator<QString, struct country_record_t> m(matching_record_list);
+        while ( m.hasNext() ) {
+            m.next();
+            struct country_record_t r = m.value();
+            pCallSign->country_text_edit_p->append(r.country);
+
+
+            // Display prefixes here
+            QListIterator<struct alias_t> ap(r.alias_prefixes);
+            while ( ap.hasNext() ) {
+                struct alias_t alias = ap.next();
+                if ( alias.prefix.startsWith((arg1)) ) {
+                    // qDebug() << "*****************************  alias.prefix:" << alias.prefix.size() << alias.prefix;
+                    pCallSign->prefix_text_edit_p->append(alias.prefix);
+                }
+            }
         }
 
-        QList<QString> prefix_keys = prefix_list.keys();
-        QListIterator<QString> k(prefix_keys);
-        while ( k.hasNext() ) {
-            QString key = k.next();
-            pCallSign->prefix_text_edit_p->append(key);
-            p_count++;
-        }
-
-        QList<QString> uniques_keys = uniques_list.keys();
-        QListIterator<QString> u(uniques_keys);
-        QString results;
+        // Display uniques here
+        QListIterator<QString> u(unique_call_list);
+        // qDebug() << "$$$$$$$$$$$$$$$$$$$$$$$ unique_call_list:" << unique_call_list.size();
         while ( u.hasNext() ) {
-            QString key = u.next();
-            results.append(key + " ");
+            QString unique_str = u.next();
+            stripUnique(unique_str);
+            unique_list.append(unique_str + " ");
+            // qDebug()<< "******************* unique_list: Adding:" << unique_str << "size" << unique_call_list.size();
         }
-        pCallSign->unique_line_edit_p->setText(results);
+        pCallSign->unique_line_edit_p->setText(unique_list);
+
     }
-    qDebug() << "CountryFileParser::lookupPartial(): Prefix: country count" << c_count << "prefix count" << p_count;
 
-    if ( primary_match || alias_match || unique_match )
-        return true;
+    return true;
+}
 
-    return false;
+int CountryFileParser::findMatch(int len, const QString &str, const QString &sub_str) {
+
+    // Find the longest match - at least len
+    int match_count = 0;
+
+    // Debug code for breakpoint
+    // if ( sub_str.startsWith("A8O") && str.startsWith("A8"))
+    //    qDebug() << "";
+
+    int i;
+    for ( i = 1; i <= len; i++ ) {
+        if ( str.left(i) == sub_str.left(i) ) {
+            match_count++;
+            // qDebug() << "Find Match" << str.left(i) << sub_str.left(i);
+        }
+    }
+
+    if ( match_count > 0 ) {
+        if ( match_count > 1 )
+            qDebug() << "Match found: match_count:" << match_count;
+        return match_count;
+    }
+    return 0;
+}
+
+void CountryFileParser::clearLookupFields() {
+
+    if ( pCallSign != nullptr ) {
+        pCallSign->call_sign_line_edit_p->clear();
+        pCallSign->country_text_edit_p->clear();
+        pCallSign->prefix_text_edit_p->clear();
+        pCallSign->unique_line_edit_p->clear();
+        pCallSign->call_sign_line_edit_p->update();
+        pCallSign->country_text_edit_p->update();
+        pCallSign->prefix_text_edit_p->update();
+        pCallSign->unique_line_edit_p->update();
+    }
 }
 
 void CountryFileParser::callsignEditBoxReportEmpty() {
     qDebug() << "CountryFileParser::callsignEditBoxReportEmpty(): report empty";
-    entry_in_progress = false;
-    pCallSign->call_sign_line_edit_p->clear();
-    pCallSign->country_text_edit_p->clear();
-    pCallSign->prefix_text_edit_p->clear();
-    pCallSign->unique_line_edit_p->clear();
-    pCallSign->country_text_edit_p->update();
-    pCallSign->prefix_text_edit_p->update();
-    pCallSign->unique_line_edit_p->update();
-    pCallSign->call_sign_line_edit_p->update();
+    clearLookupFields();
 }
 
 QString CountryFileParser::stripUnique(QString &s) {
 
     // TODO this is duplicated code
-    QString a;
     if ( s.contains('(') || s.contains('<') || s.contains('[') ) {
         // An Alias can contain any, all, or none of CQZone, ITUZone and lat/lon
         // We want to isolate just the prefix part here.
@@ -834,13 +864,57 @@ QString CountryFileParser::stripUnique(QString &s) {
         int lab = s.indexOf('<');
         int min = getLowestValidInt(lp, lb, lab);
         if ( min > 0 )
-            a = s.left(min);
-    } else {
-        a = s;
+            s = s.left(min);
     }
-    return a;
+    return s;
 }
 
 void CountryFileParser::setCallsignWindowP(CallSignLookup *callsign_window_p) {
     pCallSign = callsign_window_p;
+}
+
+bool CountryFileParser::displayRecordList() {
+
+    // country_record_list
+    struct country_record_t r;
+
+    QListIterator<struct country_record_t> m(country_record_list);
+    while ( m.hasNext() ) {
+        r = m.next();
+        qDebug() << "";
+        qDebug().noquote() << "Country[" << r.index << "]:" << r.country << "CQ ZONE:" << r.CQ_Zone << "ITU Zone:" << r.ITU_Zone << "Lat/Lon:" << r.lat << r.lon << "Uniques:" << r.unique_calls.size();
+
+        if ( r.unique_calls.isEmpty() ) {
+            qDebug().noquote() << "Uniques: EMPTY UNIQUE LIST";
+        }
+        else {
+            qDebug().noquote() << "Uniques:" << r.unique_calls;
+        }
+
+        if ( !r.alias_prefixes.isEmpty() ) {
+            QListIterator<struct alias_t> i(r.alias_prefixes);
+            QString tmpS;
+            while ( i.hasNext() ) {
+                struct alias_t a = i.next();
+                QString s;
+                s.append(r.country + ": ");
+                s.append(a.prefix + ": ");
+                if ( a.CQ_Zone != "" )
+                    s.append("(" + a.CQ_Zone + ") ");
+
+                if ( a.ITU_Zone != "" )
+                    s.append("[" + a.ITU_Zone + "] ");
+
+                if ( a.lat != 0.0 ) {
+                    s.append("<" + QString::number(a.lat) + "/");
+                    s.append(QString::number(a.lon) + "> ");
+                }
+                tmpS.append(s);
+            }
+            qDebug().noquote() << "Aliases:" << tmpS;
+        }
+
+        // qDebug() << "Aliases:" << r.alias_prefixes;
+    }
+    return true;
 }

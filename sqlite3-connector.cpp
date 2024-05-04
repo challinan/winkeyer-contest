@@ -111,10 +111,7 @@ bool Sqlite3_connector::checkIfDatabaseTablesAreEmpty() {
 
     QSqlDatabase sqlDataBase = QSqlDatabase::database("ConfigDB");
     rc = sqlDataBase.open();
-    if ( rc ) {
-        qDebug() << "Sqlite3_connector::checkIfDatabaseTablesAreEmpty(): Database: connection ok, file open";
-    }
-    else {
+    if ( !rc ) {
         QString err = sqlDataBase.lastError().text();
         qDebug() << "Sqlite3_connector::checkIfDatabaseTablesAreEmpty(): Error: opening database failed" << err;
         return false;
@@ -153,7 +150,7 @@ bool Sqlite3_connector::checkIfDatabaseTablesAreEmpty() {
     return true;
 }
 
-// Force the compiler to instantiate these three specific funcions to avoid link errors
+// Force the compiler to instantiate these specific funcions to avoid link errors
 template bool Sqlite3_connector::syncGenericWriteToDatabase_T(StationData *pDbClass);
 template bool Sqlite3_connector::syncGenericWriteToDatabase_T(SysconfigData *pDbClass);
 template bool Sqlite3_connector::syncGenericWriteToDatabase_T(ContestData *pDbClass);
@@ -166,7 +163,7 @@ bool Sqlite3_connector::syncGenericWriteToDatabase_T(T *pDbClass) {
     qDebug() << "Sqlite3_connector::syncGeneric_write_to_database_T(): Entered" << pDbClass;
 
     // SQLite command needs to look like this:
-    // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section)
+    // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, arrlsection)
     //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
 
     const QMap<int, dbfields_values_t> &pFields = pDbClass->getDbFields();
@@ -330,8 +327,8 @@ bool Sqlite3_connector::SyncDataTableRead_T(T *pDataTableClass) {
             dbFieldsIter.next();
             QString db_table_fieldname = dbFieldsIter.value().fieldname;
             // Populate our local copy of station data
-            qDebug() << "Sqlite3_connector::SyncDataTableRead_T(): db_table_fieldname:" << db_table_fieldname << "value:"
-                     << q.value(db_table_fieldname).toString();
+            // qDebug() << "Sqlite3_connector::SyncDataTableRead_T(): db_table_fieldname:" << db_table_fieldname << "value:"
+            //          << q.value(db_table_fieldname).toString();
             lMap.insert(db_table_fieldname, q.value(db_table_fieldname).toString());
         }
     }
@@ -344,7 +341,7 @@ int  Sqlite3_connector::getRowCount(QString table) {
     int rowcount = 0;
     bool rc;
 
-    qDebug() << "Sqlite3_connector::getRowCount(): Entered" << table;
+    // qDebug() << "Sqlite3_connector::getRowCount(): Entered" << table;
     QSqlDatabase sqlDataBase = QSqlDatabase::database("ConfigDB");
 
     rc = sqlDataBase.open();
@@ -587,4 +584,10 @@ void Sqlite3_connector::registerTable(const QMap<int, dbfields_values_t> &r, T *
 
     }
     table_list.append(r);
+}
+
+QString Sqlite3_connector::getContestName() {
+
+    QMap<QString, QString> &pMap = pContestConfigData->getLocalDataMap();
+    return pMap.value("current_contest_name");
 }

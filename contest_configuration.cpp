@@ -3,14 +3,27 @@
 ContestConfiguration::ContestConfiguration(QObject *parent, Sqlite3_connector *p)
     : QObject{parent}
 {
+
+    // Initialize class variables
     db = p; // Copy of our database class
-    runMode = SNP_MODE;     // Default to Search & Pounce
+    run_mode = SNP_MODE;     // Default to Search & Pounce
+    pContestConfigData = db->getContestConfigDbClassPtr();
 
     qDebug() << "ContestConfiguration::ContestConfiguration(): Entered: db = " << db;
 
     // createGlobalContestTable();
-    if ( readCwDefaultMsgFile() )
-        displayFunctionKeyList();
+
+    bool rc = readCwDefaultMsgFile();
+    // displayFunctionKeyList();
+
+    // Get and configure run mode
+    QMap<QString, QString> l = pContestConfigData->getLocalDataMap();
+
+    if ( l.value("esm_mode") == "true" )
+        emit esmStateChanged(true);
+    else
+        emit esmStateChanged(false);
+
 }
 
 bool ContestConfiguration::getDatabaseConnection() {
@@ -67,7 +80,7 @@ bool ContestConfiguration::createGlobalContestTable(){
     qDebug() << "ContestConfiguration::createGlobalContestTable(): q.exec() returned" << rc;
 
     // SQLite command needs to look like this:
-    // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, section)
+    // INSERT INTO station_data (callsign, opname, gridsquare, city, state, county, country, arrlsection)
     //  VALUES ("K1AYabc","Chris","EL96av","Punta Gorda","FL","Charlotte","USA","WCF");
 
     QListIterator<struct cabrillo_contest_names_t> m(cabrillo_contest_data);
@@ -77,7 +90,7 @@ bool ContestConfiguration::createGlobalContestTable(){
         QString strCabrilloName = c.cabrillo_name;
         int cabrilloID = c.contest_id;
         QString id;  id.setNum(cabrilloID);
-        QString strCabrilloDisplayName = c.contest;
+        QString strCabrilloDisplayName = c.contest_full_name;
 
         // CabrilloName TEXT, CabrilloID INT, DisplayName TEXT
         cmd.append("INSERT INTO ContestGlobal (CabrilloName, CabrilloID, DisplayName) VALUES (");
@@ -119,7 +132,7 @@ bool ContestConfiguration::readCwDefaultMsgFile() {
         return false;
     }
 
-    state_e state = UNKNOWN_MODE;
+    run_state_e state = UNKNOWN_MODE;
     while ( !cwFile.atEnd() ) {
 
         QString line = cwFile.readLine();
@@ -190,7 +203,7 @@ void ContestConfiguration::displayFunctionKeyList() {
     while ( l.hasNext() ) {
         struct func_key_t f = l.next();
         QString runstate = f.run_state == 1 ? "Run Mode" : "S&P Mode";
-        // qDebug() << "    " << runstate  << f.functionKey << f.label << f.exchange;
+        qDebug() << "    " << runstate  << f.functionKey << f.label << f.exchange;
     }
 }
 
@@ -203,4 +216,41 @@ void ContestConfiguration::replaceLabelTextMacro(QString &s) {
     } else {
         qDebug() << "ContestConfiguration::replaceLabelTextMacro(): *****************8Macro unhandled" << s;
     }
+}
+
+void ContestConfiguration::setCurrentContest(QString &str) {
+
+    current_contest = str;
+    QMap<QString, QString> &local_map = pContestConfigData->getLocalDataMap();
+    local_map.insert("current_contest_name", str);
+
+    // Store the currently configured contest in the database
+    QMapIterator<QString, QString> l(local_map);
+    while ( l.hasNext() ) {
+        l.next();
+        QString key = l.key();
+        QString value = l.value();
+        qDebug() << "Map Data: key" << key << "value" << value;
+    }
+    pContestConfigData->syncLocalMapToDatabase_T<ContestConfigData>(pContestConfigData);
+
+    // Setup for the contest here
+}
+
+void ContestConfiguration::setConfigContestName(QString str) {
+    configured_contest_name = str;
+}
+
+void  ContestConfiguration::setRunMode(run_state_e r) {
+
+    // RUN_MODE, SNP_MODE
+    run_mode = r;
+    QMap<QString, QString> &l = pContestConfigData->getLocalDataMap();
+
+    if ( r == RUN_MODE )
+        l.insert("esm_mode", "true");
+    else
+        l.insert("esm_mode", "false");
+
+    pContestConfigData->syncLocalMapToDatabase_T(pContestConfigData);
 }

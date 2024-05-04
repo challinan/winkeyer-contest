@@ -22,7 +22,7 @@ SerialComms::SerialComms(QObject *parent, Sqlite3_connector *p)
     // Fetch the configured serial port from the database tables
     config_serial_port = db->getSysconfigDbClassPtr()->getConfiguredSerialPort();
 
-    qDebug() << Qt::endl << "SerialComms::SerialComms() ctor: Port" << config_serial_port;
+    qDebug() << "SerialComms::SerialComms() ctor: Port" << config_serial_port;
 }
 
 SerialComms::~SerialComms() {

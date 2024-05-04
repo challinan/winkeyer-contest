@@ -75,6 +75,9 @@ public:
     QString &getDatabasePath();
     QString createDatabaseFullPath();
 
+    // Get contest name from database
+    QString getContestName();
+
 private:
     int  getRowCount(QString table);
     bool dropStationTable();

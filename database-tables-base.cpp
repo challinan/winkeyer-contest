@@ -89,10 +89,24 @@ bool DataBaseTableBaseClass::createDbTable() {
 template <typename T>
 bool DataBaseTableBaseClass::readDbValuesIntoLocalMap_T(T *pTable) {
 
-    int rc = false;
+    bool rc = false;
     qDebug() << "DataBaseTableBaseClass::readDbValuesIntoLocalMap_T(): reading values for" << pTable;
 
     rc = db->SyncDataTableRead_T(pTable);
+
+    return rc;
+}
+
+// Force the compiler to instantiate these functions to avoid link errors
+template bool DataBaseTableBaseClass::syncLocalMapToDatabase_T<ContestConfigData>(ContestConfigData *);
+
+template <typename T>
+bool DataBaseTableBaseClass::syncLocalMapToDatabase_T(T *pTable) {
+
+    bool rc = false;
+    qDebug() << "DataBaseTableBaseClass::syncLocalMapToDatabase_T(): writing values for" << pTable;
+
+    rc = db->syncGenericWriteToDatabase_T(pTable);
 
     return rc;
 }
@@ -193,7 +207,6 @@ ContestData::ContestData(Sqlite3_connector *p)
 }
 
 const QMap<int, dbfields_values_t> &ContestData::getDbFields() {
-    qDebug() << "ContestData::getDbFields(): Entered";
     return new_db_fields;
 }
 
@@ -223,7 +236,6 @@ ContestConfigData::ContestConfigData(Sqlite3_connector *p)
 }
 
 const QMap<int, dbfields_values_t> &ContestConfigData::getDbFields() {
-    qDebug() << "ContestData::getDbFields(): Entered";
     return new_db_fields;
 }
 

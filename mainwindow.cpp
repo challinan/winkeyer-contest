@@ -55,11 +55,11 @@ MainWindow::MainWindow(QWidget *parent)
     call_sign_box_pos = ui->callSignLineEdit->geometry();
 
     // Set input mask for callSignLineEdit
-   //  ui->callSignLineEdit->setInputMask(">AAAAAA;");
+    //  ui->callSignLineEdit->setInputMask(">AAAAAA;");
 
     // Connect signal from call sign input QLineEdit to signal TextEdited
     // If we connect this signal automatically, or early, the setInputMask fires the signal and we crash
-    connect(ui->callSignLineEdit, &QLineEdit::textEdited, this, &MainWindow::callSignLineEdit_textChanged);
+    connect(ui->callSignLineEdit, &QLineEdit::textEdited, this, &MainWindow::callSignLineEdit_textChanged, Qt::QueuedConnection);
 
     QRect r;
 
@@ -142,17 +142,32 @@ bool MainWindow::initialize_mainwindow() {
 
     // Initialize contest configuration and Populate the contest dropdown with the contest names
     pContestConfiguration = new ContestConfiguration(this, db);
+    connect(pContestConfiguration, &ContestConfiguration::esmStateChanged, this, &MainWindow::on_esmCheckBox_stateChanged);
+
+
+    // Get the current contest name from the database
+    QString configured_contest_name = db->getContestName();
 
     QListIterator<struct cabrillo_contest_names_t> m(pContestConfiguration->cabrillo_contest_data);
     while ( m.hasNext() ) {
-        QString contestname = m.next().cabrillo_name;
-        ui->contestComboBox->addItem(contestname);
+        struct cabrillo_contest_names_t ccn = m.next();
+        QString contest_name = ccn.cabrillo_name;
+        ui->contestComboBox->addItem(contest_name);
+
+        if ( configured_contest_name == ccn.cabrillo_name )
+            ui->contest_name_label->setText( ccn.contest_full_name );
     }
 
-    // Initialize Run Mode indicator
+    if ( !configured_contest_name.isEmpty() ) {
+        ui->contestComboBox->setCurrentText(configured_contest_name);
+        pContestConfiguration->setConfigContestName(configured_contest_name);
+    }
+
+    // Initialize ESM Mode indicator
     ui->esmModeLabel->setText("OFF");
 
     createFunctionKeys(pContestConfiguration->getRunMode());
+
     switch (pContestConfiguration->getRunMode()) {
 
         case RUN_MODE:
@@ -180,10 +195,22 @@ bool MainWindow::initialize_mainwindow() {
 
     callsign_window_p->show();
 
+    QRect main_win_rect = this->geometry();
+    QRect callsign_win_rect = callsign_window_p->geometry();
+    callsign_window_p->move (main_win_rect.x()+900,callsign_win_rect.y());
+
+    callsign_win_rect = callsign_window_p->geometry();
+    qDebug() << "Callsign Window Geometry:" << callsign_win_rect << "pos:" << callsign_window_p->pos() << "Main Rect:" << main_win_rect;
+
+
     // TODO How, where and when do I kill this timer?
     // blinkTimer = new QTimer(this);
     // connect(blinkTimer, &QTimer::timeout, this, QOverload<>::of(&MainWindow::changeConfigButtonTextColor));
     // blinkTimer->start(350);
+
+    // Main Menu handler
+    connect(ui->menubar, &QMenuBar::triggered, this, &MainWindow::menubarTriggered);
+    ui->actionCallsign_Lookup->setChecked(true);
 
     return true;
 }
@@ -198,7 +225,6 @@ void MainWindow::launchConfigDialog() {
     qDebug() << "MainWindow::launchConfigDialog(): Entered";
     pTabbedDialogPtr = new TopLevelTabContainerDialog(db);
 
-    // get_local_station_data_into_dialog(tabbedDialogPtr);
     pTabbedDialogPtr->show();
     pTabbedDialogPtr->exec();
 
@@ -255,17 +281,6 @@ void MainWindow::on_exitPushButton_clicked()
 {
     // Exit application
     QApplication::quit();
-}
-
-void MainWindow::set_dummy_station_data(Ui::stationDialog sd_ui) {
-    sd_ui.callSignLineEdit->setText("K1AY");
-    sd_ui.nameLineEdit->setText("Chris");
-    sd_ui.gridSquareLineEdit->setText("EL96av");
-    sd_ui.cityLineEdit->setText("Punta Gorda");
-    sd_ui.stateLineEdit->setText("FL");
-    sd_ui.countyLineEdit->setText("Charlotte");
-    sd_ui.countryLineEdit->setText("USA");
-    sd_ui.sectionLineEdit->setText("WCF");
 }
 
 void MainWindow::showEvent(QShowEvent *event) {
@@ -371,9 +386,21 @@ void MainWindow::on_contestComboBox_activated(int index)
 
     // Configure the main window for the contest chosen by the operator
     qDebug() << "MainWindow::on_contestComboBox_activated():" << str;
+    pContestConfiguration->setCurrentContest(str);
+
+    // Set the display string
+    QListIterator<struct cabrillo_contest_names_t> m(pContestConfiguration->cabrillo_contest_data);
+    while ( m.hasNext() ) {
+        struct cabrillo_contest_names_t ccn = m.next();
+        if ( str == ccn.cabrillo_name ) {
+            ui->contest_name_label->setText( ccn.contest_full_name );
+            break;
+        }
+    }
+
 }
 
-void MainWindow::createFunctionKeys(state_e mode) {
+void MainWindow::createFunctionKeys(run_state_e run_mode) {
 
 #define SPACE_BETWEEN_CELLS 10
 #define FKEYS_PER_ROW 6
@@ -384,11 +411,11 @@ void MainWindow::createFunctionKeys(state_e mode) {
     QListIterator<struct func_key_t> m(pFKeys);
     while ( m.hasNext() ) {
         struct func_key_t t = m.next();
-        if ( t.run_state == mode )
+        if ( t.run_state == run_mode )
             modeList.append(t);
     }
 
-    // Assumption is there are 12 function keys, 6 on each row, like n1 mm
+    // Assumption is there are 12 function keys, 6 on each row, like n1mm
     QRect r1 = ui->callSignLineEdit->geometry();
     QRect mainWinGeometery = this->geometry();
     int total_window_width = mainWinGeometery.width();
@@ -403,6 +430,11 @@ void MainWindow::createFunctionKeys(state_e mode) {
     int i;
     for ( i=0; i<6; i++) {
         QPushButton *p = new QPushButton(this);
+        // Make sure 'i' is a valid index
+        if ( i < 0 || i >= modeList.size() ) {
+            delete p;
+            return;
+        }
         p->setObjectName(modeList.at(i).functionKey);
 
         // Calcaulate where it will be place in our main window
@@ -491,7 +523,7 @@ void MainWindow::on_snpRadioButton_toggled(bool checked) {
     }
 }
 
-void MainWindow::resetFunctionButtonLabels(state_e mode) {
+void MainWindow::resetFunctionButtonLabels(run_state_e run_mode) {
 
     // Set the appropriate button label for the chosen operating mode, RUN or S&P
     QList<struct func_key_t> &pFKeys = pContestConfiguration->cwFuncKeyDefs;
@@ -500,11 +532,14 @@ void MainWindow::resetFunctionButtonLabels(state_e mode) {
     QListIterator<struct func_key_t> m(pFKeys);
     while ( m.hasNext() ) {
         struct func_key_t t = m.next();
-        if ( t.run_state == mode )
+        if ( t.run_state == run_mode )
             modeList.append(t);
     }
 
     for ( int i=0; i<12; i++) {
+        // Validate modeList index
+        if ( i < 0 || i >= modeList.size() )
+            return;
         QString button_label = modeList.at(i).functionKey;
         button_label.append(" " + modeList.at(i).label);
         function_key_buttons.at(i)->setText(button_label);
@@ -529,6 +564,17 @@ void MainWindow::callSignLineEdit_textChanged(const QString &arg1)
     QString s = arg1.toUpper();
     ui->callSignLineEdit->setText(s);
     // qDebug() << "MainWindow::on_callSignLineEdit_textChanged(): Entered - arg1" << s;
-    pCountryFileParser->lookupPartial(s, callsign_window_p);
+    // Debug Code
+    if ( arg1 == "=" ) s = "A8O";
+    pCountryFileParser->lookupPartial(s);
 }
 
+void MainWindow::menubarTriggered(QAction *a) {
+    if ( a->text() == "Callsign Lookup") {
+        if ( callsign_window_p->isVisible() )
+            callsign_window_p->hide();
+        else {
+            callsign_window_p->show();
+        }
+    }
+}

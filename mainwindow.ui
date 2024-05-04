@@ -14,27 +14,6 @@
    <string>Winkeyer Contester</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QLabel" name="windowTitle">
-    <property name="geometry">
-     <rect>
-      <x>310</x>
-      <y>0</y>
-      <width>211</width>
-      <height>24</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>22</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>Winkeyer Contester</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignCenter</set>
-    </property>
-   </widget>
    <widget class="QPushButton" name="configPushButton">
     <property name="geometry">
      <rect>
@@ -283,24 +262,58 @@
      <string>OFF</string>
     </property>
    </widget>
+   <widget class="QLabel" name="contest_name_label">
+    <property name="geometry">
+     <rect>
+      <x>80</x>
+      <y>10</y>
+      <width>271</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
   </widget>
+  <widget class="QStatusBar" name="statusbar"/>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
      <width>852</width>
-     <height>24</height>
+     <height>36</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuMenu">
+   <widget class="QMenu" name="viewMenu">
     <property name="title">
      <string>Menu</string>
     </property>
    </widget>
-   <addaction name="menuMenu"/>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionCallsign_Lookup"/>
+   </widget>
+   <addaction name="viewMenu"/>
+   <addaction name="menuView"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionCallsign_Lookup">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Callsign Lookup</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>

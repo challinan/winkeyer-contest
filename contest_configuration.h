@@ -8,6 +8,7 @@
 #include <QDebug>
 
 #include "sqlite3-connector.h"
+#include "database-tables-base.h"
 
 // CW Ops Roster: https://docs.google.com/spreadsheets/d/1Ew8b1WAorFRCixGRsr031atxmS0SsycvmOczS_fDqzc
 // ADIF Spec: https://www.adif.org/314/ADIF_314.htm
@@ -19,7 +20,7 @@
 
 /* This class manages the diffirent configurations required for specific contest types
  *   hopefully the design will be flexible enough to manage any contest with
- *   the appropriate exchange data, rules and even, yes, points calculation someday
+ *   the appropriate exchange data, rules and realtime score calculation
  *
  *    Here are some examples of contests and their exchanges
  *    FIELD DAY: ARRL/RAC members: Station Class and ARRL Section
@@ -37,7 +38,7 @@
  */
 
 enum modes_e {CW, USB, LSB, FM, DIGI, RTTY, MIXED};
-enum state_e {UNKNOWN_MODE, RUN_MODE, SNP_MODE};
+enum run_state_e {UNKNOWN_MODE, RUN_MODE, SNP_MODE};
 
 struct us_state_abbrev_t {
     QString full_state;
@@ -51,7 +52,7 @@ struct arrl_sections_t {
 
 struct cabrillo_contest_names_t {
     int contest_id;
-    QString contest;
+    QString contest_full_name;
     QString cabrillo_name;
 };
 
@@ -72,7 +73,7 @@ struct contest_data_t {
 };
 
 struct func_key_t {
-    state_e run_state;
+    run_state_e run_state;
     QString functionKey;
     QString label;
     QString exchange;
@@ -85,8 +86,11 @@ public:
     explicit ContestConfiguration(QObject *parent = nullptr, Sqlite3_connector *p = nullptr);
     bool createGlobalContestTable();
     bool getDatabaseConnection();
-    inline state_e getRunMode() {return runMode;}
-    inline void setRunMode(state_e mode) {runMode = mode;}
+    inline run_state_e getRunMode() {return run_mode;}
+    void setRunMode(run_state_e mode);
+    void setCurrentContest(QString &str);
+    void setConfigContestName(QString str);
+    void setEsmMode(bool on);
 
 private:
     bool readCwDefaultMsgFile();
@@ -97,15 +101,22 @@ private:
     // Handle Macros in {TEXT} form
     void replaceLabelTextMacro(QString &s);
 
+    // Pointer to config database tables
+    ContestConfigData *pContestConfigData;
+    QString configured_contest_name;
 
 public:
     QList<struct func_key_t> cwFuncKeyDefs;
+
+signals:
+    void esmStateChanged(bool b);
 
 private:
     Sqlite3_connector *db;
     QSqlDatabase sqlDatabase;
     QString dbpath;
-    state_e runMode;
+    run_state_e run_mode;
+    QString current_contest;
 
     // const QMap<QString, struct contest_data_t> contest_list;
 

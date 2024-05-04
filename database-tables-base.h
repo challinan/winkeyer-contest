@@ -33,6 +33,9 @@ public:
     template <typename T>
     bool readDbValuesIntoLocalMap_T(T *pTable);
 
+    template <typename T>
+    bool syncLocalMapToDatabase_T(T *pTable);
+
     Sqlite3_connector *db;
 
 };
@@ -63,8 +66,8 @@ private:
         {6, {"county", "", "County"}},
         {7, {"country", "", "Country"}},
         {8, {"cqzone", "", "CQ Zone"}},
-        {9, {"section", "", "ARRL Section"}},
-        {10, {"ituregion", "", "ITU Region"}}
+        {9, {"arrlsection", "", "ARRL Section"}},
+        {10, {"ituzone", "", "ITU Zone"}}
 
     };
 
@@ -127,7 +130,7 @@ public:
 
 private:
     QMap<QString, QString> local_data_map;
-    // Sqlite3_connector *pContestData;
+    Sqlite3_connector *pContestData;
 
 };
 
@@ -146,11 +149,13 @@ public:
     // This defines the system configuration database table layout - the one source of truth
     QMap<int, dbfields_values_t> new_db_fields {
         {0, {"contest_config_data", "", "Table Name"}},
-        {1, {"cabr_name", "", "Cabrillo Name"}},
+        {1, {"current_contest_name", "", "Cabrillo Name"}},
         {2, {"exchange", "", "Exchange"}},
-        {3, {"section", "", "Section"}},
-        {4, {"sent", "", "RST Sent"}},
-        {5, {"rcvd", "", "RST Rcvd"}}
+        {3, {"esm_mode", "", "ESM Mode"}},
+        {4, {"run_mode", "", "Run Mode"}},
+        {5, {"cfgsection", "", "Section"}},
+        {6, {"sent", "", "RST Sent"}},
+        {7, {"rcvd", "", "RST Rcvd"}}
     };
 
 private:

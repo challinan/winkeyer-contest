@@ -48,7 +48,7 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     // Set the dialog's title
     setWindowTitle("Configuration Dialog");
 
-    // {"station_data", "sysconfig_data", "contest_data"}
+    // {"station_data", "sysconfig_data", "contest_data", "contest_config_data"}
     // Get a simple list of QStrings containing our table names
     // TODO: Check if this is valid.  Doesn't "Register" save a table list?
     QList<QString> items = db->GetTableNameList();
@@ -56,8 +56,8 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
     // If data is available, populate it here
     for (const QString &item : items ) {
         database_state db_state = db->getDatabaseState(item);
-        if ( db_state != DB_NOEXIST &&  db_state != DB_NOTABLES ) {
-            qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Reading database data into tabs";
+        if ( db_state != DB_NOEXIST && db_state != DB_NOTABLES ) {
+            qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Reading database data into tabs **********************************";
             // TODO: This is ugly.  Fix it.
             if ( item == "station_data" )
                 get_local_data_into_dialog_T(pStationDataClassPtr);
@@ -69,13 +69,16 @@ TopLevelTabContainerDialog::TopLevelTabContainerDialog(Sqlite3_connector *p, QWi
                 get_local_data_into_dialog_T(pContestConfigDataClassPtr);
         } else {
             qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): Skipping database read into tabs";
+            // TODO
+            // Debug code - prepopulate station data
+            qDebug() << "TopLevelTabContainerDialog::TopLevelTabContainerDialog(): LOADING DUMMY DATA INTO TABS";
+            if ( item == "station_data" ) {
+                pStationDataTab->set_dummy_station_data(pStationDataClassPtr);
+                get_local_data_into_dialog_T(pStationDataClassPtr);
+            }
         }
 
     }
-
-    // Connect potential signals here
-    connectStationTabTextChangedSignals();
-
 }
 
 template<typename T>
@@ -95,7 +98,7 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
 
     while ( e.hasNext() ) {
         e.next();
-        //  For example: {"callsign", "opname", "gridsquare", "city", "state", "county", "country", "section"}
+        //  For example: {"callsign", "opname", "gridsquare", "city", "state", "county", "country", "arrlsection"}
 
         QLineEdit *p;
         QString childName = e.value().fieldname;    // Might be "callsign", or "opname", etc
@@ -109,7 +112,7 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
                 return false;
             }
             QString tmps = pMap.value(e.value().fieldname);
-            pBox->addItem(pMap.value(e.value().fieldname));
+            pBox->addItem(tmps);
         } else {
             childName.append("EditBox");
             qDebug() << "TopLevelTabContainerDialog::get_local_data_into_dialog_T(): childName =" << childName;  // will be "callsignEditBox", etc.
@@ -120,39 +123,12 @@ bool TopLevelTabContainerDialog::get_local_data_into_dialog_T(T *pDataClassPtr) 
                 return false;
             }
 
-            p->setText(pMap.value(e.value().fieldname));
+            QString e_dbfields_value = e.value().fieldname;
+            QString str_tmp = pMap.value(e_dbfields_value);
+            p->setText(str_tmp);
         }
     }
     return true;
-}
-
-void TopLevelTabContainerDialog::connectStationTabTextChangedSignals(bool doConnect) {
-
-    qDebug() << "TopLevelTabContainerDialog::connectStationTabTextChangedSignals: Entered" << doConnect;
-
-#if 0
-    // Connect signals from all the QLineEdit items that indicate
-    //    data changed so we know to save the data
-    QList<QString> keys = db->get_xxx_table_keys(db->db_station_fields);
-    QList<QString>::iterator e;
-    for (e = keys.begin(); e != keys.end(); ++e) {
-        QLineEdit *pLineEdit;
-        QString findKey = *e;
-        findKey.append("EditBox");
-        pLineEdit = pStationDataTab->findChild<QLineEdit *>(findKey);
-        Q_ASSERT(pLineEdit);
-        if ( doConnect ) {
-            if ( connect(pLineEdit, &QLineEdit::textChanged, this,
-                        &TopLevelTabContainerDialog::station_data_changed) )
-                qDebug() << "TopLevelTabContainerDialog::connectStationTabTextChangedSignals(): Connection valid:" << findKey;
-        }
-        else {
-            if ( disconnect(pLineEdit, &QLineEdit::textChanged, this,
-                        &TopLevelTabContainerDialog::station_data_changed) )
-                qDebug() << "TopLevelTabContainerDialog::connectStationTabTextChangedSignals(): Connection valid:" << findKey;
-        }
-    }
-#endif
 }
 
 // Avoid link errors by predefining all instances of this template function
@@ -221,15 +197,11 @@ void TopLevelTabContainerDialog::user_pressed_save() {
     db->syncGenericWriteToDatabase_T(pContestDataClassPtr);
     db->syncGenericWriteToDatabase_T(pContestConfigDataClassPtr);
 
-    // Disconnect all the QLineEdit signals
-    connectStationTabTextChangedSignals(false);
     QDialog::accept();
 }
 
 void TopLevelTabContainerDialog::user_pressed_cancel() {
     qDebug() << "TopLevelTabContainerDialog::user_pressed_cancel(): Entered";
-    // Disconnect all the QLineEdit signals
-    connectStationTabTextChangedSignals(false);
     QDialog::reject();
 }
 
@@ -245,6 +217,7 @@ TopLevelTabContainerDialog::~TopLevelTabContainerDialog() {
     delete pSysconfigTab;
     delete pContestTab;
     delete pStationDataTab;
+    delete pContestConfigTab;
     delete tabWidget;
 }
 
@@ -293,7 +266,7 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
 
     formLayout = new QFormLayout(this);
 
-    // {"callsign", "opname", "gridsquare", "city"}, "state", "county", "country", "section", "serialport"}
+    // {"callsign", "opname", "gridsquare", "city"}, "state", "county", "country", "arrlsection", "serialport"}
     QMapIterator<int, dbfields_values_t> e(db_fields);
 
     // First entry is the tablename
@@ -304,7 +277,6 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
         return;
     }
 
-
     while ( e.hasNext() ) {
         e.next();
         QString field_name = e.value().fieldname;
@@ -312,6 +284,7 @@ StationDataTab::StationDataTab(Sqlite3_connector *p, QWidget *parent)
         // Create an appropriate QLineEdit, put it in the List, give it an objname, and add it to layout
         QLineEdit *qle = new QLineEdit;
 
+        // Give the LineEdit boxes unique names so we can easily look them up later
         QString objname = field_name;
         objname.append("EditBox");
         qle->setObjectName(objname);
@@ -334,6 +307,22 @@ void StationDataTab::setLocalMapValueByKey(QString key, QString value) {
 
 StationDataTab::~StationDataTab() {
     // Delete code found in base class
+}
+
+void StationDataTab::set_dummy_station_data(StationData *pStationData) {
+
+    QMap<QString, QString> &pMap = pStationData->getLocalDataMap();
+
+    pMap.insert("callsign", "K1AY");
+    pMap.insert("opname", "Chris");
+    pMap.insert("gridsquare", "EL96av");
+    pMap.insert("city", "Punta Gorda");
+    pMap.insert("state", "FL");
+    pMap.insert("county", "Charlotte");
+    pMap.insert("country", "US");
+    pMap.insert("cqzone", "5");
+    pMap.insert("arrlsection", "WCF");
+    pMap.insert("ituzone", "2");
 }
 
 // ******************  SystemConfigTab  **************************** //

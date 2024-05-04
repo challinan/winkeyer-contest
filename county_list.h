@@ -17,6 +17,7 @@ class CountyList : public QObject
 public:
     explicit CountyList(QObject *parent = nullptr);
     ~CountyList();
+
     void process_line(QByteArray &line, QFile &file);
     bool isNumber(char c);
     int findCountyCount(QByteArray line);

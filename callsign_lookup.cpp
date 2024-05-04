@@ -6,20 +6,19 @@ CallSignLookup::CallSignLookup(const QString &title, QGroupBox *parent)
     : QGroupBox{title, parent}
 {
     qDebug() << "CallSignLookup::CallSignLookup(): Constructor called";
-    r = this->geometry();
-    // r.setWidth(r.width()+75);
-    // r.setX(r.x());
-    // this->setGeometry(r);
-    qDebug() << "CallSignLookup::CallSignLookup(): r =:" << r;
 
     prefix_text_edit_p = new QTextEdit(this);
+    prefix_text_edit_p->setReadOnly(true);
+
     country_text_edit_p = new QTextEdit(this);
+    country_text_edit_p->setReadOnly(true);
 
     country_label_p = new QLabel("Country");
     country_label_p->setObjectName("country_label");
 
     call_sign_line_edit_p = new (QLineEdit);
     call_sign_line_edit_p->setObjectName("callsign_line_edit");
+    call_sign_line_edit_p->setReadOnly(true);
 
     call_sign_label_p = new QLabel("callsign_label");
     call_sign_label_p->setText("Callsign");
@@ -27,6 +26,7 @@ CallSignLookup::CallSignLookup(const QString &title, QGroupBox *parent)
     prefix_text_edit_label_p = new QLabel("Prefix");
 
     unique_line_edit_p = new QLineEdit;
+    unique_line_edit_p->setReadOnly(true);
     unique_line_edit_label_p = new QLabel("Unique");
 
     QVBoxLayout *vbox = new QVBoxLayout;

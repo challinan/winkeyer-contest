@@ -21,7 +21,6 @@
 #define CTY_FILENAME "/Users/chris/sandbox/QtProjects/winkeyer-contest/cty_wt_mod.dat"
 
 struct alias_t {
-    QString country = "";
     QString prefix = "";
     QString CQ_Zone = "";
     QString ITU_Zone = "";
@@ -30,6 +29,7 @@ struct alias_t {
 };
 
 struct country_record_t {
+    int index = 0;
     QString country = "";
     QString CQ_Zone = "";
     QString ITU_Zone = "";
@@ -50,12 +50,14 @@ public:
     explicit CountryFileParser(QObject *parent = nullptr);
     ~CountryFileParser();
     bool openCtyFile();
-    bool lookupPartial(const QString arg1, CallSignLookup *pCallSign = nullptr);
+    bool lookupPartial(const QString arg1);
     void setCallsignWindowP(CallSignLookup *callsign_window_p);
 
 private:
     bool parseFileIntoRecords();
     QString stripUnique(QString &s);
+    void clearLookupFields();
+    int findMatch(int len, const QString &str, const QString &sub_str);
 
     // File format: https://www.country-files.com/cty-dat-format
     bool parseEachRecord();
@@ -70,7 +72,6 @@ private:
     int getLowestValidInt(int lp, int lb, int lab);
     QString active_country;
     QString active_prefix;
-    bool entry_in_progress;
 
     // For debug TODO
     void unitTestPartialScanner();
@@ -80,7 +81,16 @@ public slots:
 
 private:
     QByteArray file_buffer;
+
+    // This is the primary list of parsed records from the community country data
     QList<struct country_record_t> country_record_list;
+
+    // For realtime callsign matching - store subset of records that match input
+    QMap<QString, struct country_record_t> matching_record_list;
+    QList<QString> remove_match_list;
+
+    QList<QString> unique_call_list;    // Temp storage for unique call matching
+
     CallSignLookup *pCallSign;
 
 signals:
